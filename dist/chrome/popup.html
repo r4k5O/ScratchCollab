@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scratch Collaboration</title>
+  <style>
+    body {
+      width: 300px;
+      padding: 15px;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f9f9f9;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      color: #ff6b35;
+    }
+
+    .status {
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .status.disconnected {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .status.connected {
+      background: #e8f5e8;
+      color: #2e7d32;
+    }
+
+    .scratch-auth-status {
+      margin-bottom: 15px;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 12px;
+    }
+
+    .scratch-auth-logged-in {
+      background: #e3f2fd;
+      border-left: 3px solid #2196f3;
+    }
+
+    .scratch-auth-logged-out {
+      background: #fff3e0;
+      border-left: 3px solid #ff9800;
+    }
+
+    .scratch-user-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .scratch-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .scratch-username {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .scratch-profile-link {
+      color: #2196f3;
+      text-decoration: none;
+      font-size: 11px;
+    }
+
+    .scratch-profile-link:hover {
+      text-decoration: underline;
+    }
+
+    .scratch-login-prompt {
+      text-align: center;
+      padding: 10px;
+    }
+
+    .scratch-login-btn {
+      background: #ff6b35;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 5px;
+    }
+
+    .scratch-login-btn:hover {
+      background: #e55a2b;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+
+    .btn-primary {
+      background: #ff6b35;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #e55a2b;
+    }
+
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .participants {
+      margin-top: 15px;
+    }
+
+    .participants h3 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .participant-list {
+      max-height: 100px;
+      overflow-y: auto;
+    }
+
+    .participant {
+      display: flex;
+      align-items: center;
+      padding: 5px 0;
+      font-size: 12px;
+    }
+
+    .participant-info {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex: 1;
+    }
+
+    .friends-section {
+      margin-bottom: 15px;
+    }
+
+    .friends-section h3 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .friends-controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .friends-controls .btn {
+      flex: 1;
+      margin-bottom: 0;
+      font-size: 11px;
+      padding: 6px 8px;
+    }
+
+    .friends-list {
+      max-height: 120px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fafafa;
+    }
+
+    .friend-item {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+      font-size: 12px;
+    }
+
+    .friend-item:last-child {
+      border-bottom: none;
+    }
+
+    .friend-avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      margin-right: 8px;
+      object-fit: cover;
+    }
+
+    .friend-info {
+      flex: 1;
+    }
+
+    .friend-name {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .friend-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .friend-btn {
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .friend-btn:hover {
+      background: #e0e0e0;
+    }
+
+    .friend-btn.primary {
+      background: #ff6b35;
+      color: white;
+      border-color: #ff6b35;
+    }
+
+    .friend-btn.primary:hover {
+      background: #e55a2b;
+    }
+
+    .participant-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    .participant-dot.online {
+      background: #4caf50;
+    }
+
+    .participant-dot.offline {
+      background: #9e9e9e;
+    }
+
+    .collaboration-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      max-height: 400px;
+    }
+
+    .participants {
+      flex-shrink: 0;
+    }
+
+    .chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 200px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      max-height: 150px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 8px;
+      margin-bottom: 8px;
+      background: #fafafa;
+      font-size: 12px;
+    }
+
+    .chat-message {
+      margin-bottom: 6px;
+      padding: 4px 0;
+    }
+
+    .chat-message-header {
+      font-weight: bold;
+      margin-bottom: 2px;
+      color: #333;
+    }
+
+    .chat-message-text {
+      color: #555;
+      word-wrap: break-word;
+    }
+
+    .chat-message.own-message {
+      text-align: right;
+    }
+
+    .chat-message.own-message .chat-message-header {
+      color: #ff6b35;
+    }
+
+    .chat-input-area {
+      display: flex;
+      gap: 5px;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .chat-send-btn {
+      padding: 6px 12px;
+      background: #ff6b35;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .chat-send-btn:hover {
+      background: #e55a2b;
+    }
+
+    .setup-panel {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .setup-panel h3 {
+      margin: 0 0 15px 0;
+      color: #ff6b35;
+      font-size: 16px;
+    }
+
+    .setup-panel p {
+      margin: 0 0 20px 0;
+      color: #666;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .footer {
+      margin-top: 15px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+      font-size: 11px;
+      color: #666;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 data-translate="extension.name">Scratch Collaboration</h1>
+  </div>
+
+  <div id="scratchAuthStatus" class="scratch-auth-status">
+    <!-- Scratch authentication status will be displayed here -->
+  </div>
+
+  <div id="status" class="status disconnected">
+    Nicht verbunden
+  </div>
+
+  <div id="setupContainer" style="display: none;">
+    <div class="setup-panel">
+      <h3>Willkommen bei ScratchCollab!</h3>
+      <p>Um mit der Zusammenarbeit zu beginnen, richten Sie bitte Ihren Server ein:</p>
+
+      <div class="form-group">
+        <label for="setupServerUrl">Server-URL:</label>
+        <input type="text" id="setupServerUrl" placeholder="http://localhost:3000" value="http://localhost:3000">
+      </div>
+
+      <div class="form-group">
+        <label for="setupUserName">Ihr Standard-Name:</label>
+        <input type="text" id="setupUserName" placeholder="Geben Sie Ihren Namen ein">
+      </div>
+
+      <button id="completeSetupBtn" class="btn btn-primary">
+        Setup abschließen
+      </button>
+    </div>
+  </div>
+
+  <div id="connectionForm">
+    <div class="form-group">
+      <label for="serverUrl" data-translate="ui.serverUrl">Server-URL:</label>
+      <input type="text" id="serverUrl" placeholder="z.B. http://localhost:3000" required>
+    </div>
+
+    <div class="form-group">
+      <label for="userName" data-translate="ui.yourName">Ihr Name:</label>
+      <input type="text" id="userName" placeholder="Geben Sie Ihren Namen ein" required>
+    </div>
+
+    <button id="connectBtn" class="btn btn-primary">
+      Zusammenarbeit starten
+    </button>
+  </div>
+
+  <div id="collaborationControls" style="display: none;">
+    <div class="form-group">
+      <label for="projectId">Projekt-ID:</label>
+      <input type="text" id="projectId" placeholder="Aktuelles Projekt" readonly>
+    </div>
+
+    <button id="disconnectBtn" class="btn btn-secondary">
+      Zusammenarbeit stoppen
+    </button>
+
+    <button id="changeServerBtn" class="btn btn-secondary" style="margin-top: 8px; font-size: 11px;">
+      Server-URL ändern
+    </button>
+  </div>
+
+  <div class="collaboration-panel">
+    <div class="friends-section">
+      <h3>Freunde</h3>
+      <div class="friends-controls">
+        <button id="showFriendsBtn" class="btn btn-secondary">Freunde anzeigen</button>
+        <button id="inviteFriendBtn" class="btn btn-secondary">Freund einladen</button>
+      </div>
+      <div id="friendsList" class="friends-list" style="display: none;">
+        <!-- Friends will be listed here -->
+      </div>
+    </div>
+
+    <div class="participants">
+      <h3>Teilnehmer</h3>
+      <div id="participantList" class="participant-list">
+        <!-- Participants will be listed here -->
+      </div>
+    </div>
+
+    <div class="chat">
+      <h3>Chat</h3>
+      <div id="chatMessages" class="chat-messages">
+        <!-- Chat messages will be displayed here -->
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chatInput" placeholder="Nachricht eingeben..." class="chat-input">
+        <button id="sendChatBtn" class="chat-send-btn">Senden</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Scratch Collaboration Extension v1.0.0
+  </div>
+
+  <script src="browser-polyfill.js"></script>
+  <script src="translations/translator.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -5,8 +5,12 @@ yarn-debug.log*
 yarn-error.log*
 
 # Build output
-dist/
-build/
+build/icons
+build/translations
+build/background.js
+build/content.js
+build/inject.js
+build/popup.js 
 
 # Environment variables
 .env
