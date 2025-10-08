@@ -1,0 +1,40 @@
+{
+  "name": "scratch-collaboration-extension",
+  "version": "1.0.0",
+  "description": "Chrome extension for real-time Scratch project collaboration",
+  "main": "build.js",
+  "scripts": {
+    "build": "node build.js",
+    "setup": "npm run setup:extension && npm run setup:server",
+    "setup:extension": "echo 'Extension files are ready - no additional setup required'",
+    "setup:server": "cd server && npm install",
+    "start": "npm run start:server",
+    "start:server": "cd server && npm start",
+    "start:dev": "cd server && npm run dev",
+    "clean": "rm -rf dist/",
+    "rebuild": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "scratch",
+    "collaboration",
+    "chrome-extension",
+    "real-time",
+    "websocket"
+  ],
+  "author": "Scratch Collaboration Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/r4k5O/ScratchCollab.git"
+  },
+  "bugs": {
+    "url": "https://github.com/r4k5O/ScratchCollab/issues"
+  },
+  "homepage": "https://github.com/r4k5O/ScratchCollab#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "chrome-extension-builder": "^1.0.0"
+  }
+}
