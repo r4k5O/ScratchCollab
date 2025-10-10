@@ -33,6 +33,7 @@ class CollaborationPopup {
     this.setupUserName = document.getElementById('setupUserName');
     this.completeSetupBtn = document.getElementById('completeSetupBtn');
     this.changeServerBtn = document.getElementById('changeServerBtn');
+    this.startServerBtn = document.getElementById('startServerBtn');
 
     // Set up event listeners
     this.setupEventListeners();
@@ -109,6 +110,13 @@ class CollaborationPopup {
     this.changeServerBtn.addEventListener('click', () => {
       this.showServerChangeDialog();
     });
+
+    // Start server functionality
+    if (this.startServerBtn) {
+      this.startServerBtn.addEventListener('click', () => {
+        this.startCollaborationServer();
+      });
+    }
   }
 
   async loadCurrentStatus() {
@@ -238,7 +246,7 @@ class CollaborationPopup {
 
     // Validate server URL format
     if (!this.isValidServerUrl(serverUrl)) {
-      this.showError('Bitte geben Sie eine gültige Server-URL ein (z.B. http://localhost:3000)');
+      this.showError('Bitte geben Sie eine gültige Server-URL ein (z.B. http://localhost:3000 oder https://abc123.ngrok.io)');
       return;
     }
 
@@ -295,6 +303,16 @@ class CollaborationPopup {
       this.connectBtn.disabled = false;
       this.connectBtn.textContent = 'Start Collaboration';
     }
+
+    // Set timeout to reset connection if it gets stuck
+    setTimeout(() => {
+      if (this.connectBtn.disabled && this.connectBtn.textContent === 'Connecting...') {
+        console.log('Connection timeout - resetting');
+        this.showError('Connection timeout - please try again');
+        this.connectBtn.disabled = false;
+        this.connectBtn.textContent = 'Start Collaboration';
+      }
+    }, 15000); // 15 second timeout
   }
 
   async stopCollaboration() {
@@ -649,11 +667,46 @@ class CollaborationPopup {
     }, 3000);
   }
 
-  // Validate server URL format
+  // Validate server URL format (supports ngrok and other tunneling services)
   isValidServerUrl(url) {
     try {
       const urlObj = new URL(url);
-      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+
+      // Allow HTTP and HTTPS
+      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+        return false;
+      }
+
+      // Allow common development and tunneling domains
+      const allowedDomains = [
+        'localhost',
+        '127.0.0.1',
+        '0.0.0.0',
+        '.ngrok.io',
+        '.ngrok.com',
+        '.ngrok-free.app',
+        'localhost.run',
+        '.serveo.net',
+        '.localtunnel.me',
+        '.tunnelmole.com'
+      ];
+
+      const hostname = urlObj.hostname.toLowerCase();
+
+      // Allow exact matches (localhost, 127.0.0.1, etc.)
+      if (allowedDomains.includes(hostname)) {
+        return true;
+      }
+
+      // Allow wildcard matches (*.ngrok.io, etc.)
+      const isAllowedWildcard = allowedDomains.some(domain => {
+        if (domain.startsWith('.')) {
+          return hostname.endsWith(domain);
+        }
+        return false;
+      });
+
+      return isAllowedWildcard;
     } catch (error) {
       return false;
     }
@@ -693,7 +746,7 @@ class CollaborationPopup {
           this.showNotification('Bitte starten Sie die Zusammenarbeit neu mit der neuen Server-URL');
         }
       } else {
-        this.showError('Bitte geben Sie eine gültige Server-URL ein');
+        this.showError('Bitte geben Sie eine gültige Server-URL ein (z.B. http://localhost:3000 oder https://abc123.ngrok.io)');
       }
     }
   }
@@ -817,6 +870,87 @@ class CollaborationPopup {
     }
 
     console.log(`UI language updated to: ${language}`);
+  }
+
+  // Start the collaboration server
+  async startCollaborationServer() {
+    try {
+      this.showNotification('Starte Collaboration Server...');
+
+      // Send message to background script to start server
+      const response = await this.sendMessage({
+        action: 'startServer'
+      });
+
+      if (response.success) {
+        this.showNotification('Server erfolgreich gestartet!');
+
+        // Update server URL if it was localhost
+        if (this.serverUrlInput.value === 'http://localhost:3000' || !this.serverUrlInput.value) {
+          this.serverUrlInput.value = 'http://localhost:3000';
+          await this.saveSettings('http://localhost:3000', this.userNameInput.value);
+        }
+
+        // Test server availability
+        setTimeout(async () => {
+          const serverAvailable = await this.testServerAvailability('http://localhost:3000');
+          if (serverAvailable) {
+            this.showNotification('Server ist bereit für Zusammenarbeit!');
+          } else {
+            this.showNotification('Server läuft, aber ist noch nicht erreichbar. Bitte warten Sie einen Moment.');
+          }
+        }, 2000);
+
+      } else {
+        throw new Error(response.error || 'Failed to start server');
+      }
+    } catch (error) {
+      console.error('Error starting server:', error);
+      this.showNotification(`Fehler beim Starten des Servers: ${error.message}`);
+
+      // Show manual start instructions
+      this.showManualServerStartInstructions();
+    }
+  }
+
+  // Show manual server start instructions
+  showManualServerStartInstructions() {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 50px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      z-index: 10002;
+      max-width: 400px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      animation: slideIn 0.3s ease-out;
+    `;
+
+    notification.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 8px;">Server manuell starten:</div>
+      <div style="margin-bottom: 8px; line-height: 1.4;">
+        Öffnen Sie ein Terminal und führen Sie aus:<br><br>
+        <code style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 2px;">cd server</code><br>
+        <code style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 2px;">npm start</code>
+      </div>
+      <div style="font-size: 10px; color: #ccc;">
+        Oder verwenden Sie: <code style="background: rgba(255,255,255,0.1); padding: 1px 3px; border-radius: 2px;">npm run start:server</code>
+      </div>
+    `;
+
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 8000);
   }
 
   // Helper method to send messages to background script

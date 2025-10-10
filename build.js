@@ -87,11 +87,6 @@ class ExtensionBuilder {
       }
     });
 
-    // Create icons directory (placeholder)
-    const iconsDir = path.join(this.buildDir, 'icons');
-    fs.mkdirSync(iconsDir, { recursive: true });
-    console.log('  ✓ icons/ (directory)');
-
     // Copy translation files
     this.copyTranslationFiles();
   }
@@ -184,11 +179,6 @@ class ExtensionBuilder {
 
       // Copy translation files
       this.copyTranslationFilesToBrowser(browserDir);
-
-      // Create icons directory
-      const iconsDir = path.join(browserDir, 'icons');
-      fs.mkdirSync(iconsDir, { recursive: true });
-      console.log(`    ✓ icons/ (directory)`);
 
       console.log(`    ✅ ${browser.name} build completed`);
     });
@@ -316,7 +306,6 @@ To modify the extension:
 │   │   ├── background.js
 │   │   ├── browser-polyfill.js
 │   │   ├── translations/
-│   │   └── icons/
 │   ├── firefox/                   # Firefox extension
 │   │   ├── manifest.json         # Firefox manifest (v2)
 │   │   ├── popup.html
@@ -325,7 +314,6 @@ To modify the extension:
 │   │   ├── background.js
 │   │   ├── browser-polyfill.js
 │   │   ├── translations/
-│   │   └── icons/
 │   └── edge/                      # Microsoft Edge extension
 │       ├── manifest.json
 │       └── ... (same as chrome)

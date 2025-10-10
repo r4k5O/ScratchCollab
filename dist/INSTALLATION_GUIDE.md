@@ -100,7 +100,6 @@ To modify the extension:
 │   │   ├── background.js
 │   │   ├── browser-polyfill.js
 │   │   ├── translations/
-│   │   └── icons/
 │   ├── firefox/                   # Firefox extension
 │   │   ├── manifest.json         # Firefox manifest (v2)
 │   │   ├── popup.html
@@ -109,7 +108,6 @@ To modify the extension:
 │   │   ├── background.js
 │   │   ├── browser-polyfill.js
 │   │   ├── translations/
-│   │   └── icons/
 │   └── edge/                      # Microsoft Edge extension
 │       ├── manifest.json
 │       └── ... (same as chrome)

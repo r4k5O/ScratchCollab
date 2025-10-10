@@ -35,6 +35,6 @@
     "node": ">=14.0.0"
   },
   "devDependencies": {
-    "chrome-extension-builder": "^1.0.0"
+    "chrome-extension-builder": "^0.0.5"
   }
 }

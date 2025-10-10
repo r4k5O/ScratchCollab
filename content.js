@@ -123,7 +123,7 @@ class ScratchCollaboration {
 
     // Disconnect from server
     if (this.socket) {
-      this.socket.disconnect();
+      this.socket.close();
       this.socket = null;
     }
 
@@ -135,6 +135,9 @@ class ScratchCollaboration {
 
     // Clean up remote cursors
     this.cleanupRemoteCursors();
+
+    // Hide status immediately
+    this.hideCollaborationStatus();
 
     // Update UI
     this.updateCollaborationUI();
@@ -153,8 +156,20 @@ class ScratchCollaboration {
       // Create WebSocket connection
       this.socket = new WebSocket(this.serverUrl.replace('http', 'ws'));
 
+      // Set connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
+          console.log('Connection timeout - closing socket');
+          this.socket.close();
+          this.socket = null;
+          this.showNotification('Connection timeout - please check server URL');
+          this.hideCollaborationStatus();
+        }
+      }, 10000); // 10 second timeout
+
       this.socket.onopen = () => {
         console.log('Connected to collaboration server');
+        clearTimeout(connectionTimeout);
         this.onServerConnected();
       };
 
@@ -169,7 +184,11 @@ class ScratchCollaboration {
 
       this.socket.onclose = (event) => {
         console.log('Disconnected from collaboration server:', event.code, event.reason);
+        clearTimeout(connectionTimeout);
         this.socket = null;
+
+        // Hide status if connection was lost
+        this.hideCollaborationStatus();
 
         // Attempt to reconnect if still collaborating
         if (this.isCollaborating) {
@@ -183,10 +202,13 @@ class ScratchCollaboration {
 
       this.socket.onerror = (error) => {
         console.error('WebSocket error:', error);
+        clearTimeout(connectionTimeout);
+        this.hideCollaborationStatus();
       };
 
     } catch (error) {
       console.error('Error connecting to server:', error);
+      this.hideCollaborationStatus();
     }
   }
 
@@ -397,10 +419,44 @@ class ScratchCollaboration {
       font-size: 12px;
       z-index: 10000;
       display: none;
+      cursor: pointer;
+      user-select: none;
     `;
 
+    // Add close button to status
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = ' ×';
+    closeBtn.style.cssText = `
+      margin-left: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    `;
+
+    closeBtn.addEventListener('mouseenter', () => {
+      closeBtn.style.opacity = '1';
+    });
+
+    closeBtn.addEventListener('mouseleave', () => {
+      closeBtn.style.opacity = '0.7';
+    });
+
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.hideCollaborationStatus();
+    });
+
+    statusDiv.appendChild(closeBtn);
     document.body.appendChild(statusDiv);
     this.statusElement = statusDiv;
+
+    // Auto-hide after 10 seconds if still showing
+    setTimeout(() => {
+      if (statusDiv && statusDiv.style.display !== 'none') {
+        this.hideCollaborationStatus();
+      }
+    }, 10000);
 
     // Add "Share with ScratchCollab" button
     this.addShareButton();
@@ -480,36 +536,34 @@ class ScratchCollaboration {
     const projectId = this.extractProjectId();
 
     if (projectId) {
-      // Get server URL from storage
       try {
         const result = await chrome.storage.local.get(['serverUrl']);
-        const serverUrl = result.serverUrl || 'http://localhost:3000';
+        const serverUrl = result.serverUrl;
 
+        // Check if server URL is configured
         if (!serverUrl || serverUrl.trim() === '') {
-          this.showNotification('Bitte geben Sie zuerst eine Server-URL in der Erweiterung ein');
+          this.showSetupRequiredNotification();
           return;
         }
 
+        // Generate collaboration URL using the server
         const collaborationUrl = `${serverUrl}?project=${projectId}&source=scratch`;
 
-        // Copy to clipboard
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(collaborationUrl).then(() => {
-            this.showNotification('Zusammenarbeits-Link in Zwischenablage kopiert!');
-          }).catch(err => {
-            console.error('Failed to copy: ', err);
-            this.showNotification('Fehler beim Kopieren des Links');
-          });
+        // Test if server is reachable before sharing
+        const serverReachable = await this.testServerAvailability(serverUrl);
+
+        if (serverReachable) {
+          // Server is available - copy link and show success message
+          await this.copyCollaborationUrl(collaborationUrl);
+          this.showNotification(`Zusammenarbeits-Link erstellt: ${collaborationUrl}`);
         } else {
-          // Fallback for older browsers
-          this.fallbackCopyTextToClipboard(collaborationUrl);
+          // Server not reachable - offer to start server or use alternative
+          this.handleServerNotAvailable(collaborationUrl, serverUrl);
         }
 
-        // Also show the URL in a notification
-        this.showNotification(`Teilen Sie diesen Link: ${collaborationUrl}`);
       } catch (error) {
-        console.error('Error getting server URL:', error);
-        this.showNotification('Fehler beim Laden der Server-URL');
+        console.error('Error generating collaboration URL:', error);
+        this.showNotification('Fehler beim Generieren des Links');
       }
     } else {
       this.showNotification('Projekt-ID konnte nicht extrahiert werden');
@@ -544,6 +598,156 @@ class ScratchCollaboration {
     document.body.removeChild(textArea);
   }
 
+  // Test if server is reachable
+  async testServerAvailability(serverUrl) {
+    try {
+      // Convert WebSocket URL to HTTP for testing
+      const httpUrl = serverUrl.replace('ws://', 'http://').replace('wss://', 'https://');
+      const healthUrl = `${httpUrl}/health`;
+
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        timeout: 3000
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.warn('Server availability test failed:', error);
+      return false;
+    }
+  }
+
+  // Copy collaboration URL to clipboard
+  async copyCollaborationUrl(url) {
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+        this.showNotification('Zusammenarbeits-Link in Zwischenablage kopiert!');
+      } else {
+        this.fallbackCopyTextToClipboard(url);
+      }
+    } catch (error) {
+      console.error('Error copying URL:', error);
+      this.fallbackCopyTextToClipboard(url);
+    }
+  }
+
+  // Show notification when server setup is required
+  showSetupRequiredNotification() {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 50px;
+      right: 10px;
+      background: rgba(255, 193, 7, 0.9);
+      color: black;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      z-index: 10002;
+      max-width: 300px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      animation: slideIn 0.3s ease-out;
+    `;
+
+    notification.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 8px;">Server einrichten</div>
+      <div style="margin-bottom: 8px;">Bitte richten Sie zuerst eine Server-URL in der Erweiterung ein, um den Zusammenarbeits-Link zu verwenden.</div>
+      <div style="font-size: 11px; color: #666;">
+        Klicken Sie auf das Erweiterungssymbol und geben Sie eine Server-URL ein.
+      </div>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Remove notification after 5 seconds
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 5000);
+
+    // Also open popup to help user configure server
+    setTimeout(() => {
+      chrome.action.openPopup();
+    }, 1000);
+  }
+
+  // Handle case when server is configured but not available
+  handleServerNotAvailable(collaborationUrl, serverUrl) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 50px;
+      right: 10px;
+      background: rgba(255, 107, 53, 0.9);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      z-index: 10002;
+      max-width: 320px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      animation: slideIn 0.3s ease-out;
+    `;
+
+    notification.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 8px;">Server nicht erreichbar</div>
+      <div style="margin-bottom: 8px;">Der Server ${serverUrl} ist nicht erreichbar.</div>
+      <div style="margin-bottom: 8px; font-size: 11px;">
+        Mögliche Lösungen:<br>
+        • Starten Sie den Server: <code>cd server && npm start</code><br>
+        • Überprüfen Sie die Server-URL in den Einstellungen
+      </div>
+      <div style="margin-top: 8px;">
+        <button id="copyLinkAnyway" style="
+          background: rgba(255,255,255,0.2);
+          border: 1px solid rgba(255,255,255,0.3);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 3px;
+          font-size: 11px;
+          cursor: pointer;
+          margin-right: 8px;
+        ">Trotzdem Link kopieren</button>
+        <button id="openSettings" style="
+          background: rgba(255,255,255,0.2);
+          border: 1px solid rgba(255,255,255,0.3);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 3px;
+          font-size: 11px;
+          cursor: pointer;
+        ">Einstellungen öffnen</button>
+      </div>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Handle button clicks
+    const copyLinkBtn = notification.querySelector('#copyLinkAnyway');
+    const openSettingsBtn = notification.querySelector('#openSettings');
+
+    copyLinkBtn.addEventListener('click', () => {
+      this.copyCollaborationUrl(collaborationUrl);
+      notification.remove();
+    });
+
+    openSettingsBtn.addEventListener('click', () => {
+      chrome.action.openPopup();
+      notification.remove();
+    });
+
+    // Auto-remove after 8 seconds
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 8000);
+  }
+
   updateCollaborationUI() {
     if (this.statusElement) {
       if (this.isCollaborating) {
@@ -553,6 +757,12 @@ class ScratchCollaboration {
       } else {
         this.statusElement.style.display = 'none';
       }
+    }
+  }
+
+  hideCollaborationStatus() {
+    if (this.statusElement) {
+      this.statusElement.style.display = 'none';
     }
   }
 

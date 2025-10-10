@@ -160,6 +160,17 @@
       background: #e0e0e0;
     }
 
+    .btn-server-start {
+      background: #4caf50;
+      color: white;
+      border: 1px solid #4caf50;
+    }
+
+    .btn-server-start:hover {
+      background: #45a049;
+      border-color: #45a049;
+    }
+
     .btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -396,6 +407,20 @@
       line-height: 1.4;
     }
 
+    .ngrok-info {
+      background: #e3f2fd;
+      border: 1px solid #2196f3;
+      border-radius: 4px;
+      padding: 8px;
+      margin: 10px 0;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .ngrok-info strong {
+      color: #1976d2;
+    }
+
     .footer {
       margin-top: 15px;
       padding-top: 10px;
@@ -424,9 +449,14 @@
       <h3>Willkommen bei ScratchCollab!</h3>
       <p>Um mit der Zusammenarbeit zu beginnen, richten Sie bitte Ihren Server ein:</p>
 
+      <div class="ngrok-info">
+        <strong>💡 Tipp:</strong> Verwenden Sie <strong>ngrok</strong> für öffentliche Zusammenarbeit:<br>
+        <code>ngrok http 3000</code> erstellt eine öffentliche URL wie <code>https://abc123.ngrok.io</code>
+      </div>
+
       <div class="form-group">
         <label for="setupServerUrl">Server-URL:</label>
-        <input type="text" id="setupServerUrl" placeholder="http://localhost:3000" value="http://localhost:3000">
+        <input type="text" id="setupServerUrl" placeholder="z.B. http://localhost:3000 oder https://abc123.ngrok.io" value="http://localhost:3000">
       </div>
 
       <div class="form-group">
@@ -443,7 +473,7 @@
   <div id="connectionForm">
     <div class="form-group">
       <label for="serverUrl" data-translate="ui.serverUrl">Server-URL:</label>
-      <input type="text" id="serverUrl" placeholder="z.B. http://localhost:3000" required>
+      <input type="text" id="serverUrl" placeholder="z.B. http://localhost:3000 oder https://abc123.ngrok.io" required>
     </div>
 
     <div class="form-group">
@@ -468,6 +498,10 @@
 
     <button id="changeServerBtn" class="btn btn-secondary" style="margin-top: 8px; font-size: 11px;">
       Server-URL ändern
+    </button>
+
+    <button id="startServerBtn" class="btn btn-server-start" style="margin-top: 4px; font-size: 11px;">
+      Server starten
     </button>
   </div>
 

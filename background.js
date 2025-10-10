@@ -46,6 +46,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     case 'participantsListUpdated':
       handleParticipantsListUpdated(request, sendResponse);
       return true;
+
+    case 'startServer':
+      handleStartServer(request, sendResponse);
+      return true;
   }
 });
 
@@ -192,6 +196,35 @@ async function handleParticipantsListUpdated(request, sendResponse) {
 
     sendResponse({ success: true });
   } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// Handle starting the collaboration server
+async function handleStartServer(request, sendResponse) {
+  try {
+    // Use exec to start the server in a new terminal
+    const { exec } = require('child_process');
+    const path = require('path');
+
+    // Get the extension directory path
+    const extensionPath = chrome.runtime.getURL('.').replace('chrome-extension://', '');
+    const serverPath = path.join(extensionPath, '..', 'server');
+
+    // Start the server
+    exec('cd "' + serverPath + '" && npm start', (error, stdout, stderr) => {
+      if (error) {
+        console.error('Error starting server:', error);
+        sendResponse({ success: false, error: error.message });
+        return;
+      }
+
+      console.log('Server started successfully:', stdout);
+      sendResponse({ success: true });
+    });
+
+  } catch (error) {
+    console.error('Error in handleStartServer:', error);
     sendResponse({ success: false, error: error.message });
   }
 }

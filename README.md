@@ -209,7 +209,6 @@ Die Erweiterung erkennt automatisch die Sprache der Scratch-Website und passt ih
 │   ├── popup.js            # Popup-Logik
 │   ├── content.js          # Scratch-Seiten-Integration
 │   ├── background.js       # Hintergrund-Script
-│   └── icons/              # Erweiterungs-Icons
 ├── server/                 # Kollaborations-Server
 │   ├── server.js           # WebSocket-Server
 │   ├── package.json        # Server-Abhängigkeiten
