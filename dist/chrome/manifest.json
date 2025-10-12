@@ -6,7 +6,8 @@
   "permissions": [
     "activeTab",
     "storage",
-    "tabs"
+    "tabs",
+    "contextMenus"
   ],
   "host_permissions": [
     "http://localhost:3000/*",
@@ -28,7 +29,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["server/*", "translations/*"],
+      "resources": ["server/*", "translations/*", "welcome.html"],
       "matches": ["https://scratch.mit.edu/*"]
     }
   ]

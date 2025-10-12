@@ -18,6 +18,11 @@ const collaborationSessions = new Map();
 // Store authenticated Scratch users
 const scratchUsers = new Map();
 
+// Store friends data (in production, this would be a database)
+const friendsData = new Map(); // username -> friends list
+const friendRequests = new Map(); // username -> pending requests
+const notificationsData = new Map(); // username -> notifications list
+
 // WebSocket connection handling
 wss.on('connection', (ws, request) => {
   console.log('New WebSocket connection established');
@@ -85,6 +90,54 @@ function handleWebSocketMessage(ws, data) {
 
     case 'ping':
       ws.send(JSON.stringify({ type: 'pong' }));
+      break;
+
+    case 'friendInvitation':
+      handleFriendInvitation(ws, data);
+      break;
+
+    case 'addFriend':
+      handleAddFriend(ws, data);
+      break;
+
+    case 'removeFriend':
+      handleRemoveFriend(ws, data);
+      break;
+
+    case 'getFriends':
+      handleGetFriends(ws, data);
+      break;
+
+    case 'getFriendRequests':
+      handleGetFriendRequests(ws, data);
+      break;
+
+    case 'acceptFriendRequest':
+      handleAcceptFriendRequest(ws, data);
+      break;
+
+    case 'declineFriendRequest':
+      handleDeclineFriendRequest(ws, data);
+      break;
+
+    case 'getNotifications':
+      handleGetNotifications(ws, data);
+      break;
+
+    case 'markNotificationRead':
+      handleMarkNotificationRead(ws, data);
+      break;
+
+    case 'markAllNotificationsRead':
+      handleMarkAllNotificationsRead(ws, data);
+      break;
+
+    case 'deleteNotification':
+      handleDeleteNotification(ws, data);
+      break;
+
+    case 'clearAllNotifications':
+      handleClearAllNotifications(ws, data);
       break;
 
     default:
@@ -295,15 +348,32 @@ function handleCursorMove(ws, data) {
 function handleChatMessage(ws, data) {
   const { projectId, message } = data;
 
-  if (!ws.projectId || !message || message.trim() === '') {
+  if (!ws.projectId) {
     ws.send(JSON.stringify({
       type: 'error',
-      message: 'Project ID and message are required'
+      message: 'You must join a project before sending chat messages'
     }));
     return;
   }
 
-  // Broadcast chat message to all participants in the project
+  if (!message || message.trim() === '') {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Message cannot be empty'
+    }));
+    return;
+  }
+
+  // Validate message length (max 500 characters)
+  if (message.length > 500) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Message too long (max 500 characters)'
+    }));
+    return;
+  }
+
+  // Broadcast chat message to all participants in the project (including sender)
   broadcastToProject(ws.projectId, {
     type: 'chatMessage',
     userName: ws.userName,
@@ -313,6 +383,784 @@ function handleChatMessage(ws, data) {
   });
 }
 
+// Handle friend invitation
+function handleFriendInvitation(ws, data) {
+  const { friendUsername, projectId } = data;
+
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required for friend invitations'
+    }));
+    return;
+  }
+
+  if (!friendUsername) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Friend username is required'
+    }));
+    return;
+  }
+
+  const requesterUsername = ws.scratchUser.username;
+
+  // Check if user exists (in a real implementation, you'd check against Scratch API)
+  if (!isValidScratchUser(friendUsername)) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `User '${friendUsername}' not found on Scratch`
+    }));
+    return;
+  }
+
+  // Check if they're already friends
+  if (areUsersFriends(requesterUsername, friendUsername)) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `You are already friends with ${friendUsername}`
+    }));
+    return;
+  }
+
+  // Check if there's already a pending request
+  if (hasPendingFriendRequest(requesterUsername, friendUsername)) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Friend request already sent to ${friendUsername}`
+    }));
+    return;
+  }
+
+  // Send friend request
+  addFriendRequest(requesterUsername, friendUsername);
+
+  // Notify the target user if they're online
+  notifyUserOfFriendRequest(friendUsername, {
+    from: requesterUsername,
+    projectId: projectId,
+    timestamp: Date.now()
+  });
+
+  ws.send(JSON.stringify({
+    type: 'friendInvitationSent',
+    friendUsername: friendUsername,
+    timestamp: Date.now()
+  }));
+}
+
+// Handle add friend request
+function handleAddFriend(ws, data) {
+  const { friendUsername } = data;
+
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  if (!friendUsername) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Friend username is required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+
+  // Check if user exists
+  if (!isValidScratchUser(friendUsername)) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `User '${friendUsername}' not found on Scratch`
+    }));
+    return;
+  }
+
+  // Check if they're already friends
+  if (areUsersFriends(username, friendUsername)) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `You are already friends with ${friendUsername}`
+    }));
+    return;
+  }
+
+  // Check if there's already a pending request
+  if (hasPendingFriendRequest(username, friendUsername)) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Friend request already sent to ${friendUsername}`
+    }));
+    return;
+  }
+
+  // Send friend request
+  addFriendRequest(username, friendUsername);
+
+  ws.send(JSON.stringify({
+    type: 'friendRequestSent',
+    friendUsername: friendUsername,
+    timestamp: Date.now()
+  }));
+}
+
+// Handle remove friend
+function handleRemoveFriend(ws, data) {
+  const { friendUsername } = data;
+
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  if (!friendUsername) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Friend username is required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+
+  if (removeFriend(username, friendUsername)) {
+    ws.send(JSON.stringify({
+      type: 'friendRemoved',
+      friendUsername: friendUsername,
+      timestamp: Date.now()
+    }));
+  } else {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `${friendUsername} is not in your friends list`
+    }));
+  }
+}
+
+// Handle get friends list
+function handleGetFriends(ws, data) {
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+  const friends = getUserFriends(username);
+
+  ws.send(JSON.stringify({
+    type: 'friendsList',
+    friends: friends,
+    timestamp: Date.now()
+  }));
+}
+
+// Handle get friend requests
+function handleGetFriendRequests(ws, data) {
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+  const requests = getUserFriendRequests(username);
+
+  ws.send(JSON.stringify({
+    type: 'friendRequests',
+    requests: requests,
+    timestamp: Date.now()
+  }));
+}
+
+// Handle accept friend request
+function handleAcceptFriendRequest(ws, data) {
+  const { requesterUsername } = data;
+
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  if (!requesterUsername) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Requester username is required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+
+  if (acceptFriendRequest(requesterUsername, username)) {
+    // Notify both users
+    notifyUserOfFriendAcceptance(requesterUsername, username);
+
+    ws.send(JSON.stringify({
+      type: 'friendRequestAccepted',
+      friendUsername: requesterUsername,
+      timestamp: Date.now()
+    }));
+  } else {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Friend request not found'
+    }));
+  }
+}
+
+// Handle decline friend request
+function handleDeclineFriendRequest(ws, data) {
+  const { requesterUsername } = data;
+
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  if (!requesterUsername) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Requester username is required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+
+  if (declineFriendRequest(requesterUsername, username)) {
+    ws.send(JSON.stringify({
+      type: 'friendRequestDeclined',
+      requesterUsername: requesterUsername,
+      timestamp: Date.now()
+    }));
+  } else {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Friend request not found'
+    }));
+  }
+}
+
+// Helper functions for friend management
+function isValidScratchUser(username) {
+  // In a real implementation, this would check against Scratch's API
+  // For now, we'll assume any non-empty username is valid
+  return username && username.trim().length > 0 && username.length <= 20;
+}
+
+function areUsersFriends(username1, username2) {
+  const friends1 = getUserFriends(username1);
+  return friends1.some(friend => friend.username === username2);
+}
+
+function hasPendingFriendRequest(fromUsername, toUsername) {
+  const requests = getUserFriendRequests(toUsername);
+  return requests.some(request => request.from === fromUsername);
+}
+
+function addFriendRequest(fromUsername, toUsername) {
+  if (!friendRequests.has(toUsername)) {
+    friendRequests.set(toUsername, []);
+  }
+
+  const requests = friendRequests.get(toUsername);
+  requests.push({
+    from: fromUsername,
+    to: toUsername,
+    timestamp: Date.now(),
+    status: 'pending'
+  });
+}
+
+function removeFriend(username, friendUsername) {
+  if (!friendsData.has(username)) {
+    return false;
+  }
+
+  const friends = friendsData.get(username);
+  const index = friends.findIndex(friend => friend.username === friendUsername);
+
+  if (index === -1) {
+    return false;
+  }
+
+  friends.splice(index, 1);
+
+  // Also remove from the other user's friends list
+  if (friendsData.has(friendUsername)) {
+    const otherFriends = friendsData.get(friendUsername);
+    const otherIndex = otherFriends.findIndex(friend => friend.username === username);
+    if (otherIndex !== -1) {
+      otherFriends.splice(otherIndex, 1);
+    }
+  }
+
+  return true;
+}
+
+function getUserFriends(username) {
+  if (!friendsData.has(username)) {
+    friendsData.set(username, []);
+  }
+  return friendsData.get(username);
+}
+
+function getUserFriendRequests(username) {
+  if (!friendRequests.has(username)) {
+    friendRequests.set(username, []);
+  }
+  return friendRequests.get(username);
+}
+
+function acceptFriendRequest(requesterUsername, targetUsername) {
+  // Remove the friend request
+  const requests = friendRequests.get(targetUsername) || [];
+  const requestIndex = requests.findIndex(req => req.from === requesterUsername);
+
+  if (requestIndex === -1) {
+    return false;
+  }
+
+  requests.splice(requestIndex, 1);
+
+  // Add to both users' friends lists
+  if (!friendsData.has(requesterUsername)) {
+    friendsData.set(requesterUsername, []);
+  }
+  if (!friendsData.has(targetUsername)) {
+    friendsData.set(targetUsername, []);
+  }
+
+  const requesterFriends = friendsData.get(requesterUsername);
+  const targetFriends = friendsData.get(targetUsername);
+
+  // Add friend info
+  const friendInfo = {
+    username: targetUsername,
+    addedAt: Date.now(),
+    status: 'online' // Will be updated based on actual status
+  };
+
+  const requesterInfo = {
+    username: requesterUsername,
+    addedAt: Date.now(),
+    status: 'online'
+  };
+
+  requesterFriends.push(friendInfo);
+  targetFriends.push(requesterInfo);
+
+  return true;
+}
+
+function declineFriendRequest(requesterUsername, targetUsername) {
+  const requests = friendRequests.get(targetUsername) || [];
+  const requestIndex = requests.findIndex(req => req.from === requesterUsername);
+
+  if (requestIndex === -1) {
+    return false;
+  }
+
+  requests.splice(requestIndex, 1);
+  return true;
+}
+
+function notifyUserOfFriendRequest(targetUsername, requestData) {
+  // Find all WebSocket connections for the target user
+  wss.clients.forEach(client => {
+    if (client.isAuthenticated && client.scratchUser &&
+        client.scratchUser.username === targetUsername &&
+        client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({
+        type: 'friendRequestReceived',
+        from: requestData.from,
+        projectId: requestData.projectId,
+        timestamp: requestData.timestamp
+      }));
+    }
+  });
+}
+
+function notifyUserOfFriendAcceptance(requesterUsername, targetUsername) {
+  // Notify both users
+  wss.clients.forEach(client => {
+    if (client.isAuthenticated && client.readyState === WebSocket.OPEN) {
+      const username = client.scratchUser.username;
+
+      if (username === requesterUsername || username === targetUsername) {
+        client.send(JSON.stringify({
+          type: 'friendAdded',
+          friendUsername: username === requesterUsername ? targetUsername : requesterUsername,
+          timestamp: Date.now()
+        }));
+      }
+    }
+  });
+}
+
+// Handle get notifications
+function handleGetNotifications(ws, data) {
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+  const notifications = getUserNotifications(username);
+
+  ws.send(JSON.stringify({
+    type: 'notificationsList',
+    notifications: notifications,
+    unreadCount: notifications.filter(n => !n.read).length,
+    timestamp: Date.now()
+  }));
+}
+
+// Handle mark notification as read
+function handleMarkNotificationRead(ws, data) {
+  const { notificationId } = data;
+
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  if (!notificationId) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Notification ID is required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+
+  if (markNotificationAsRead(username, notificationId)) {
+    ws.send(JSON.stringify({
+      type: 'notificationMarkedRead',
+      notificationId: notificationId,
+      timestamp: Date.now()
+    }));
+  } else {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Notification not found'
+    }));
+  }
+}
+
+// Handle mark all notifications as read
+function handleMarkAllNotificationsRead(ws, data) {
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+
+  if (markAllNotificationsAsRead(username)) {
+    ws.send(JSON.stringify({
+      type: 'allNotificationsMarkedRead',
+      timestamp: Date.now()
+    }));
+  } else {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Failed to mark notifications as read'
+    }));
+  }
+}
+
+// Handle delete notification
+function handleDeleteNotification(ws, data) {
+  const { notificationId } = data;
+
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  if (!notificationId) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Notification ID is required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+
+  if (deleteNotification(username, notificationId)) {
+    ws.send(JSON.stringify({
+      type: 'notificationDeleted',
+      notificationId: notificationId,
+      timestamp: Date.now()
+    }));
+  } else {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Notification not found'
+    }));
+  }
+}
+
+// Handle clear all notifications
+function handleClearAllNotifications(ws, data) {
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+
+  if (clearAllNotifications(username)) {
+    ws.send(JSON.stringify({
+      type: 'allNotificationsCleared',
+      timestamp: Date.now()
+    }));
+  } else {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Failed to clear notifications'
+    }));
+  }
+}
+
+// Helper functions for notifications
+function getUserNotifications(username) {
+  if (!notificationsData.has(username)) {
+    notificationsData.set(username, []);
+  }
+  return notificationsData.get(username);
+}
+
+function addNotification(username, type, title, message, data = {}) {
+  if (!notificationsData.has(username)) {
+    notificationsData.set(username, []);
+  }
+
+  const notifications = notificationsData.get(username);
+  const notification = {
+    id: generateNotificationId(),
+    type: type,
+    title: title,
+    message: message,
+    data: data,
+    timestamp: Date.now(),
+    read: false
+  };
+
+  notifications.unshift(notification); // Add to beginning for chronological order
+
+  // Keep only last 100 notifications per user
+  if (notifications.length > 100) {
+    notifications.splice(100);
+  }
+
+  return notification;
+}
+
+function markNotificationAsRead(username, notificationId) {
+  const notifications = getUserNotifications(username);
+  const notification = notifications.find(n => n.id === notificationId);
+
+  if (notification) {
+    notification.read = true;
+    return true;
+  }
+
+  return false;
+}
+
+function markAllNotificationsAsRead(username) {
+  const notifications = getUserNotifications(username);
+  let markedAny = false;
+
+  notifications.forEach(notification => {
+    if (!notification.read) {
+      notification.read = true;
+      markedAny = true;
+    }
+  });
+
+  return markedAny;
+}
+
+function deleteNotification(username, notificationId) {
+  const notifications = getUserNotifications(username);
+  const index = notifications.findIndex(n => n.id === notificationId);
+
+  if (index !== -1) {
+    notifications.splice(index, 1);
+    return true;
+  }
+
+  return false;
+}
+
+function clearAllNotifications(username) {
+  notificationsData.set(username, []);
+  return true;
+}
+
+function generateNotificationId() {
+  return 'notif_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// Enhanced friend request handler to create notifications
+function handleAddFriend(ws, data) {
+  const { friendUsername } = data;
+
+  if (!ws.isAuthenticated || !ws.scratchUser) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Authentication required'
+    }));
+    return;
+  }
+
+  if (!friendUsername) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Friend username is required'
+    }));
+    return;
+  }
+
+  const username = ws.scratchUser.username;
+
+  // Check if user exists
+  if (!isValidScratchUser(friendUsername)) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `User '${friendUsername}' not found on Scratch`
+    }));
+    return;
+  }
+
+  // Check if they're already friends
+  if (areUsersFriends(username, friendUsername)) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `You are already friends with ${friendUsername}`
+    }));
+    return;
+  }
+
+  // Check if there's already a pending request
+  if (hasPendingFriendRequest(username, friendUsername)) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Friend request already sent to ${friendUsername}`
+    }));
+    return;
+  }
+
+  // Send friend request and create notification for target user
+  addFriendRequest(username, friendUsername);
+
+  // Create notification for the target user
+  addNotification(friendUsername, 'friendRequest', 'Freundschaftsanfrage',
+    `${username} möchte Ihr Freund sein`, {
+      from: username,
+      type: 'friendRequest'
+    });
+
+  ws.send(JSON.stringify({
+    type: 'friendRequestSent',
+    friendUsername: friendUsername,
+    timestamp: Date.now()
+  }));
+}
+
+// Enhanced notification creation for various events
+function notifyUserOfFriendRequest(targetUsername, requestData) {
+  // Find all WebSocket connections for the target user
+  wss.clients.forEach(client => {
+    if (client.isAuthenticated && client.scratchUser &&
+        client.scratchUser.username === targetUsername &&
+        client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({
+        type: 'friendRequestReceived',
+        from: requestData.from,
+        projectId: requestData.projectId,
+        timestamp: requestData.timestamp
+      }));
+    }
+  });
+
+  // Also create a notification
+  addNotification(targetUsername, 'friendRequest', 'Freundschaftsanfrage erhalten',
+    `${requestData.from} hat Ihnen eine Freundschaftsanfrage gesendet`, {
+      from: requestData.from,
+      projectId: requestData.projectId,
+      type: 'friendRequest'
+    });
+}
+
+function notifyUserOfFriendAcceptance(requesterUsername, targetUsername) {
+  // Notify both users
+  wss.clients.forEach(client => {
+    if (client.isAuthenticated && client.readyState === WebSocket.OPEN) {
+      const username = client.scratchUser.username;
+
+      if (username === requesterUsername || username === targetUsername) {
+        client.send(JSON.stringify({
+          type: 'friendAdded',
+          friendUsername: username === requesterUsername ? targetUsername : requesterUsername,
+          timestamp: Date.now()
+        }));
+      }
+    }
+  });
+
+  // Create notifications
+  addNotification(requesterUsername, 'friendAccepted', 'Freundschaftsanfrage angenommen',
+    `${targetUsername} hat Ihre Freundschaftsanfrage angenommen`, {
+      friendUsername: targetUsername,
+      type: 'friendAccepted'
+    });
+
+  addNotification(targetUsername, 'friendAccepted', 'Freundschaftsanfrage angenommen',
+    `Sie haben die Freundschaftsanfrage von ${requesterUsername} angenommen`, {
+      friendUsername: requesterUsername,
+      type: 'friendAccepted'
+    });
+}
+
 // Handle client disconnect
 function handleClientDisconnect(ws) {
   if (ws.projectId && collaborationSessions.has(ws.projectId)) {
@@ -320,7 +1168,7 @@ function handleClientDisconnect(ws) {
   }
 }
 
-// Broadcast message to all participants in a project except sender
+// Broadcast message to all participants in a project (including sender)
 function broadcastToProject(projectId, message, excludeClientId = null) {
   if (!collaborationSessions.has(projectId)) {
     return;
@@ -330,11 +1178,16 @@ function broadcastToProject(projectId, message, excludeClientId = null) {
   const messageStr = JSON.stringify(message);
 
   session.participants.forEach((participant, clientId) => {
-    if (clientId !== excludeClientId && participant.ws.readyState === WebSocket.OPEN) {
+    if (participant.ws.readyState === WebSocket.OPEN) {
       participant.ws.send(messageStr);
     }
   });
 }
+
+// Root endpoint - serve the start page
+app.get('/', (req, res) => {
+  res.sendFile('index.html', { root: __dirname });
+});
 
 // REST API endpoints
 app.get('/api/sessions', (req, res) => {

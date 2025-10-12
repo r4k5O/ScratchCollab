@@ -160,6 +160,17 @@
       background: #e0e0e0;
     }
 
+    .btn-server-start {
+      background: #4caf50;
+      color: white;
+      border: 1px solid #4caf50;
+    }
+
+    .btn-server-start:hover {
+      background: #45a049;
+      border-color: #45a049;
+    }
+
     .btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -378,6 +389,21 @@
       background: #e55a2b;
     }
 
+    .chat-counter {
+      text-align: right;
+      font-size: 10px;
+      color: #999;
+      margin-top: 4px;
+    }
+
+    .chat-counter.warning {
+      color: #ff6b35;
+    }
+
+    .chat-counter.error {
+      color: #d32f2f;
+    }
+
     .setup-panel {
       text-align: center;
       padding: 20px;
@@ -396,6 +422,169 @@
       line-height: 1.4;
     }
 
+    .ngrok-info {
+      background: #e3f2fd;
+      border: 1px solid #2196f3;
+      border-radius: 4px;
+      padding: 8px;
+      margin: 10px 0;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .ngrok-info strong {
+      color: #1976d2;
+    }
+
+    /* Tab Navigation */
+    .tab-navigation {
+      display: flex;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      background: #f5f5f5;
+      color: #666;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 4px 4px 0 0;
+      margin-right: 2px;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:last-child {
+      margin-right: 0;
+    }
+
+    .tab-btn.active {
+      background: #ff6b35;
+      color: white;
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Notifications */
+    .notifications-section {
+      margin-bottom: 15px;
+    }
+
+    .notifications-controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .notifications-controls .btn {
+      flex: 1;
+      margin-bottom: 0;
+      font-size: 11px;
+      padding: 6px 8px;
+    }
+
+    .notifications-list {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fafafa;
+    }
+
+    .notification-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 12px;
+      position: relative;
+    }
+
+    .notification-item:last-child {
+      border-bottom: none;
+    }
+
+    .notification-item.unread {
+      background: #fff3e0;
+      border-left: 3px solid #ff6b35;
+    }
+
+    .notification-icon {
+      width: 16px;
+      height: 16px;
+      margin-right: 10px;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .notification-content {
+      flex: 1;
+    }
+
+    .notification-title {
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 2px;
+    }
+
+    .notification-message {
+      color: #666;
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+
+    .notification-time {
+      font-size: 10px;
+      color: #999;
+    }
+
+    .notification-actions {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .notification-btn {
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .notification-btn:hover {
+      background: #e0e0e0;
+    }
+
+    .notification-badge {
+      background: #ff6b35;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-left: 6px;
+      display: inline-block;
+      min-width: 16px;
+      text-align: center;
+    }
+
     .footer {
       margin-top: 15px;
       padding-top: 10px;
@@ -403,6 +592,558 @@
       font-size: 11px;
       color: #666;
       text-align: center;
+    }
+
+    /* Animation Keyframes */
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(100%);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes slideInFromTop {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideInFromBottom {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes scaleIn {
+      from {
+        opacity: 0;
+        transform: scale(0.8);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes bounceIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.3);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1.05);
+      }
+      70% {
+        transform: scale(0.9);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes slideInLeft {
+      from {
+        opacity: 0;
+        transform: translateX(-100%);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes rotate {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: -200px 0;
+      }
+      100% {
+        background-position: calc(200px + 100%) 0;
+      }
+    }
+
+    /* Animation Classes */
+    .animate-slide-in {
+      animation: slideIn 0.3s ease-out;
+    }
+
+    .animate-slide-in-top {
+      animation: slideInFromTop 0.3s ease-out;
+    }
+
+    .animate-slide-in-bottom {
+      animation: slideInFromBottom 0.3s ease-out;
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .animate-scale-in {
+      animation: scaleIn 0.3s ease-out;
+    }
+
+    .animate-bounce-in {
+      animation: bounceIn 0.5s ease-out;
+    }
+
+    .animate-pulse {
+      animation: pulse 0.6s ease-in-out;
+    }
+
+    .animate-slide-left {
+      animation: slideInLeft 0.3s ease-out;
+    }
+
+    .animate-rotate {
+      animation: rotate 0.5s linear infinite;
+    }
+
+    .animate-shimmer {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200px 100%;
+      animation: shimmer 1.5s infinite;
+    }
+
+    /* Enhanced Button Animations */
+    .btn:active {
+      transform: scale(0.98);
+      transition: transform 0.1s ease;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      position: relative;
+    }
+
+    .btn:disabled::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+      width: 12px;
+      height: 12px;
+      border: 2px solid transparent;
+      border-top: 2px solid currentColor;
+      border-radius: 50%;
+      animation: rotate 1s linear infinite;
+    }
+
+    /* Status Animation Enhancements */
+    .status.connected {
+      background: #e8f5e8;
+      color: #2e7d32;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .status.connected::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(76, 175, 80, 0.3), transparent);
+      animation: slideIn 1s ease-in-out infinite;
+    }
+
+    .status.disconnected {
+      background: #ffebee;
+      color: #c62828;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    /* Tab Animation Enhancements */
+    .tab-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      background: #f5f5f5;
+      color: #666;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 4px 4px 0 0;
+      margin-right: 2px;
+      position: relative;
+      transition: all 0.2s ease;
+      overflow: hidden;
+    }
+
+    .tab-btn:last-child {
+      margin-right: 0;
+    }
+
+    .tab-btn.active {
+      background: #ff6b35;
+      color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: rgba(255,255,255,0.3);
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: #e0e0e0;
+      color: #333;
+      transform: translateY(-1px);
+    }
+
+    /* Tab Content Animation */
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .tab-content.switching {
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    /* Chat Message Animations */
+    .chat-message {
+      margin-bottom: 6px;
+      padding: 4px 0;
+      animation: slideInFromBottom 0.3s ease-out;
+      opacity: 0;
+      animation-fill-mode: forwards;
+    }
+
+    .chat-message:nth-child(1) { animation-delay: 0.1s; }
+    .chat-message:nth-child(2) { animation-delay: 0.2s; }
+    .chat-message:nth-child(3) { animation-delay: 0.3s; }
+
+    .chat-message.own-message {
+      animation: slideInFromTop 0.3s ease-out;
+    }
+
+    /* Notification Animations */
+    .notification-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 12px;
+      position: relative;
+      animation: slideInFromTop 0.4s ease-out;
+      animation-fill-mode: both;
+    }
+
+    .notification-item:nth-child(1) { animation-delay: 0.1s; }
+    .notification-item:nth-child(2) { animation-delay: 0.2s; }
+    .notification-item:nth-child(3) { animation-delay: 0.3s; }
+
+    .notification-item.unread {
+      background: #fff3e0;
+      border-left: 3px solid #ff6b35;
+      animation: bounceIn 0.5s ease-out;
+    }
+
+    /* Participant Animations */
+    .participant {
+      display: flex;
+      align-items: center;
+      padding: 5px 0;
+      font-size: 12px;
+      animation: slideInFromLeft 0.3s ease-out;
+      animation-fill-mode: both;
+    }
+
+    .participant:nth-child(1) { animation-delay: 0.1s; }
+    .participant:nth-child(2) { animation-delay: 0.2s; }
+    .participant:nth-child(3) { animation-delay: 0.3s; }
+
+    .participant-dot.online {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+      background: #4caf50;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .participant-dot.offline {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+      background: #9e9e9e;
+    }
+
+    /* Form Input Animations */
+    .form-group input:focus {
+      transform: scale(1.02);
+      box-shadow: 0 2px 8px rgba(255, 107, 53, 0.2);
+      transition: all 0.2s ease;
+    }
+
+    .form-group input {
+      transition: all 0.2s ease;
+    }
+
+    /* Button Hover Enhancements */
+    .btn-primary:hover {
+      background: #e55a2b;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Loading Animation for Buttons */
+    .btn.loading {
+      position: relative;
+      color: transparent;
+    }
+
+    .btn.loading::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      border: 2px solid transparent;
+      border-top: 2px solid currentColor;
+      border-radius: 50%;
+      animation: rotate 1s linear infinite;
+    }
+
+    /* Friend Item Animations */
+    .friend-item {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+      font-size: 12px;
+      transition: all 0.2s ease;
+      animation: slideInFromBottom 0.3s ease-out;
+      animation-fill-mode: both;
+    }
+
+    .friend-item:nth-child(1) { animation-delay: 0.1s; }
+    .friend-item:nth-child(2) { animation-delay: 0.2s; }
+    .friend-item:nth-child(3) { animation-delay: 0.3s; }
+
+    .friend-item:hover {
+      background: #f0f0f0;
+      transform: translateX(4px);
+    }
+
+    /* Scratch Auth Status Animation */
+    .scratch-auth-logged-in {
+      background: #e3f2fd;
+      border-left: 3px solid #2196f3;
+      animation: slideInFromLeft 0.4s ease-out;
+    }
+
+    .scratch-auth-logged-out {
+      background: #fff3e0;
+      border-left: 3px solid #ff9800;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    /* Setup Panel Animation */
+    .setup-panel {
+      text-align: center;
+      padding: 20px;
+      animation: scaleIn 0.4s ease-out;
+    }
+
+    /* Connection Form Animation */
+    #connectionForm {
+      animation: slideInFromTop 0.4s ease-out;
+    }
+
+    #collaborationControls {
+      animation: slideInFromBottom 0.4s ease-out;
+    }
+
+    /* Notification Badge Animation */
+    .notification-badge {
+      background: #ff6b35;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-left: 6px;
+      display: inline-block;
+      min-width: 16px;
+      text-align: center;
+      animation: bounceIn 0.5s ease-out;
+      position: relative;
+    }
+
+    .notification-badge::after {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      border: 2px solid #ff6b35;
+      border-radius: 50%;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    /* Chat Input Enhancement */
+    .chat-input:focus {
+      transform: scale(1.02);
+      box-shadow: 0 2px 8px rgba(255, 107, 53, 0.2);
+      transition: all 0.2s ease;
+    }
+
+    .chat-send-btn:active {
+      transform: scale(0.95);
+      transition: transform 0.1s ease;
+    }
+
+    /* Error and Success States */
+    .status.error {
+      background: #ffebee;
+      color: #c62828;
+      animation: pulse 1s ease-in-out infinite;
+      border: 1px solid #ffcdd2;
+    }
+
+    .status.success {
+      background: #e8f5e8;
+      color: #2e7d32;
+      animation: bounceIn 0.5s ease-out;
+      border: 1px solid #c8e6c9;
+    }
+
+    /* Hover Effects for Interactive Elements */
+    .friend-btn:hover {
+      background: #e0e0e0;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .friend-btn.primary:hover {
+      background: #e55a2b;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
+    }
+
+    .notification-btn:hover {
+      background: #e0e0e0;
+      transform: translateY(-1px);
+    }
+
+    /* Close Button Animation */
+    #closeShareDialog:hover,
+    #closeInviteDialog:hover {
+      background: rgba(0,0,0,0.1);
+      transform: scale(1.1);
+      transition: all 0.2s ease;
+    }
+
+    /* QR Code Animation */
+    #qrCodePlaceholder {
+      width: 150px;
+      height: 150px;
+      background: #e9e9e9;
+      margin: 0 auto;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      font-size: 12px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    /* Typing Indicator Animation */
+    .typing-indicator {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      font-size: 12px;
+      color: #666;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .typing-dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #666;
+      margin: 0 2px;
+      animation: bounceIn 0.6s ease-in-out infinite;
+    }
+
+    .typing-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .typing-dot:nth-child(3) {
+      animation-delay: 0.4s;
     }
   </style>
 </head>
@@ -421,21 +1162,38 @@
 
   <div id="setupContainer" style="display: none;">
     <div class="setup-panel">
-      <h3>Willkommen bei ScratchCollab!</h3>
-      <p>Um mit der Zusammenarbeit zu beginnen, richten Sie bitte Ihren Server ein:</p>
+      <div style="font-size: 4em; margin-bottom: 20px;">🚀</div>
+      <h3>Willkommen bei ScratchCollab Extension!</h3>
+      <p style="color: #666; font-size: 16px; margin-bottom: 25px;">
+        Die ultimative Scratch-Erweiterung für echte Zusammenarbeit!
+        Verbinden Sie sich mit Freunden und arbeiten Sie gemeinsam an Projekten.
+      </p>
 
-      <div class="form-group">
-        <label for="setupServerUrl">Server-URL:</label>
-        <input type="text" id="setupServerUrl" placeholder="http://localhost:3000" value="http://localhost:3000">
+      <div style="background: linear-gradient(135deg, #ff6b35, #ff8c42); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+        <strong>✨ Neue Features:</strong><br>
+        • Echtzeit-Zusammenarbeit<br>
+        • Freundes-System<br>
+        • Live-Chat<br>
+        • Benachrichtigungen
+      </div>
+
+      <div class="ngrok-info">
+        <strong>💡 Tipp:</strong> Verwenden Sie <strong>ngrok</strong> für öffentliche Zusammenarbeit:<br>
+        <code>ngrok http 3000</code> erstellt eine öffentliche URL wie <code>https://abc123.ngrok.io</code>
       </div>
 
       <div class="form-group">
-        <label for="setupUserName">Ihr Standard-Name:</label>
-        <input type="text" id="setupUserName" placeholder="Geben Sie Ihren Namen ein">
+        <label for="setupServerUrl">🌐 Server-URL:</label>
+        <input type="text" id="setupServerUrl" placeholder="z.B. http://localhost:3000 oder https://abc123.ngrok.io" value="http://localhost:3000" style="border: 2px solid #ff6b35;">
       </div>
 
-      <button id="completeSetupBtn" class="btn btn-primary">
-        Setup abschließen
+      <div class="form-group">
+        <label for="setupUserName">👤 Ihr Standard-Name:</label>
+        <input type="text" id="setupUserName" placeholder="Geben Sie Ihren Namen ein" style="border: 2px solid #ff6b35;">
+      </div>
+
+      <button id="completeSetupBtn" class="btn btn-primary" style="background: linear-gradient(135deg, #ff6b35, #ff8c42); font-size: 16px; padding: 12px; margin-top: 10px;">
+        🚀 Setup abschließen und starten!
       </button>
     </div>
   </div>
@@ -443,7 +1201,7 @@
   <div id="connectionForm">
     <div class="form-group">
       <label for="serverUrl" data-translate="ui.serverUrl">Server-URL:</label>
-      <input type="text" id="serverUrl" placeholder="z.B. http://localhost:3000" required>
+      <input type="text" id="serverUrl" placeholder="z.B. http://localhost:3000 oder https://abc123.ngrok.io" required>
     </div>
 
     <div class="form-group">
@@ -469,19 +1227,49 @@
     <button id="changeServerBtn" class="btn btn-secondary" style="margin-top: 8px; font-size: 11px;">
       Server-URL ändern
     </button>
+
+    <button id="startServerBtn" class="btn btn-server-start" style="margin-top: 4px; font-size: 11px;">
+      Server starten
+    </button>
   </div>
 
   <div class="collaboration-panel">
-    <div class="friends-section">
-      <h3>Freunde</h3>
-      <div class="friends-controls">
-        <button id="showFriendsBtn" class="btn btn-secondary">Freunde anzeigen</button>
-        <button id="inviteFriendBtn" class="btn btn-secondary">Freund einladen</button>
-      </div>
-      <div id="friendsList" class="friends-list" style="display: none;">
-        <!-- Friends will be listed here -->
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+      <button id="friendsTabBtn" class="tab-btn active" data-tab="friends">Freunde</button>
+      <button id="notificationsTabBtn" class="tab-btn" data-tab="notifications">
+        Nachrichten
+        <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
+      </button>
+    </div>
+
+    <!-- Friends Tab -->
+    <div id="friendsTab" class="tab-content active">
+      <div class="friends-section">
+        <div class="friends-controls">
+          <button id="showFriendsBtn" class="btn btn-secondary">Freunde anzeigen</button>
+          <button id="showRequestsBtn" class="btn btn-secondary">Anfragen</button>
+          <button id="inviteFriendBtn" class="btn btn-secondary">Freund hinzufügen</button>
+        </div>
+        <div id="friendsList" class="friends-list" style="display: none;">
+          <!-- Friends and friend requests will be listed here -->
+        </div>
       </div>
     </div>
+
+    <!-- Notifications Tab -->
+    <div id="notificationsTab" class="tab-content">
+      <div class="notifications-section">
+        <div class="notifications-controls">
+          <button id="markAllReadBtn" class="btn btn-secondary">Alle als gelesen markieren</button>
+          <button id="clearAllBtn" class="btn btn-secondary" style="color: #d32f2f; border-color: #d32f2f;">Alle löschen</button>
+        </div>
+        <div id="notificationsList" class="notifications-list">
+          <!-- Notifications will be listed here -->
+        </div>
+      </div>
+    </div>
+  </div>
 
     <div class="participants">
       <h3>Teilnehmer</h3>
@@ -496,8 +1284,11 @@
         <!-- Chat messages will be displayed here -->
       </div>
       <div class="chat-input-area">
-        <input type="text" id="chatInput" placeholder="Nachricht eingeben..." class="chat-input">
+        <input type="text" id="chatInput" placeholder="Nachricht eingeben..." class="chat-input" maxlength="500">
         <button id="sendChatBtn" class="chat-send-btn">Senden</button>
+      </div>
+      <div class="chat-counter">
+        <span id="chatCharCount">0</span>/500 Zeichen
       </div>
     </div>
   </div>

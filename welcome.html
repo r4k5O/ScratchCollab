@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Willkommen bei ScratchCollab!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 50%, #ffa726 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .welcome-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            margin: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .welcome-header {
+            margin-bottom: 30px;
+        }
+
+        .welcome-logo {
+            font-size: 4em;
+            margin-bottom: 20px;
+            animation: bounceIn 1s ease-out;
+        }
+
+        h1 {
+            color: #ff6b35;
+            font-size: 2.2em;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .welcome-text {
+            color: #333;
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .features-list {
+            text-align: left;
+            margin: 25px 0;
+            color: #333;
+        }
+
+        .feature-item {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            animation: slideInFromLeft 0.5s ease-out;
+            animation-fill-mode: both;
+        }
+
+        .feature-item:nth-child(1) { animation-delay: 0.2s; }
+        .feature-item:nth-child(2) { animation-delay: 0.4s; }
+        .feature-item:nth-child(3) { animation-delay: 0.6s; }
+        .feature-item:nth-child(4) { animation-delay: 0.8s; }
+
+        .feature-icon {
+            background: linear-gradient(135deg, #ff6b35, #ff8c42);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .welcome-buttons {
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            min-width: 200px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ff6b35, #ff8c42);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 53, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.9);
+            color: #ff6b35;
+            border: 2px solid #ff6b35;
+        }
+
+        .btn-secondary:hover {
+            background: #ff6b35;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .footer {
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .background-animation {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.05)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.08)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.08)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.08)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes slideInFromLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .welcome-logo {
+            animation: bounceIn 1s ease-out, float 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="background-animation"></div>
+
+    <div class="welcome-container">
+        <div class="welcome-header">
+            <div class="welcome-logo">🚀</div>
+            <h1>Willkommen bei ScratchCollab!</h1>
+        </div>
+
+        <div class="welcome-text">
+            Die ultimative Scratch-Erweiterung für echte Zusammenarbeit!
+            Arbeite gemeinsam mit Freunden an Scratch-Projekten in Echtzeit.
+        </div>
+
+        <div class="features-list">
+            <div class="feature-item">
+                <div class="feature-icon">👥</div>
+                <div>
+                    <strong>Gemeinsame Bearbeitung</strong><br>
+                    <span style="font-size: 0.9em; color: #666;">Bearbeite Projekte gleichzeitig mit anderen</span>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">💬</div>
+                <div>
+                    <strong>Live-Chat</strong><br>
+                    <span style="font-size: 0.9em; color: #666;">Kommuniziere direkt im Projekt</span>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">👤</div>
+                <div>
+                    <strong>Freundes-System</strong><br>
+                    <span style="font-size: 0.9em; color: #666;">Füge Freunde hinzu und arbeite zusammen</span>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">🔔</div>
+                <div>
+                    <strong>Benachrichtigungen</strong><br>
+                    <span style="font-size: 0.9em; color: #666;">Bleibe über Aktivitäten auf dem Laufenden</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="welcome-buttons">
+            <a href="#" class="btn btn-primary" id="startSetupBtn">Jetzt starten!</a>
+            <a href="#" class="btn btn-secondary" id="skipIntroBtn">Überspringen</a>
+        </div>
+
+        <div class="footer">
+            ScratchCollab Extension v1.0.0 | Bereit für kreative Zusammenarbeit!
+        </div>
+    </div>
+
+    <script src="browser-polyfill.js"></script>
+    <script>
+        // Check if we're in an extension context
+        function isExtensionContext() {
+            try {
+                return typeof chrome !== 'undefined' &&
+                       chrome.runtime &&
+                       chrome.runtime.id;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        document.getElementById('startSetupBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+
+            if (isExtensionContext()) {
+                try {
+                    // Mark introduction as seen
+                    chrome.storage.local.set({ introductionSeen: true }, function() {
+                        if (chrome.runtime.lastError) {
+                            console.error('Storage error:', chrome.runtime.lastError);
+                        }
+                    });
+
+                    // Open the main popup/setup
+                    if (chrome.action && chrome.action.openPopup) {
+                        chrome.action.openPopup();
+                    } else if (chrome.browserAction && chrome.browserAction.openPopup) {
+                        chrome.browserAction.openPopup();
+                    }
+                } catch (error) {
+                    console.error('Error in start button:', error);
+                }
+            } else {
+                // Fallback: redirect to options page or show message
+                console.log('Not in extension context, using fallback');
+                // Store in localStorage as fallback
+                try {
+                    localStorage.setItem('scratchCollab_introductionSeen', 'true');
+                } catch (e) {
+                    console.error('localStorage not available');
+                }
+            }
+
+            // Close this window
+            try {
+                window.close();
+            } catch (error) {
+                console.error('Error closing window:', error);
+            }
+        });
+
+        document.getElementById('skipIntroBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+
+            if (isExtensionContext()) {
+                try {
+                    // Mark introduction as seen
+                    chrome.storage.local.set({ introductionSeen: true }, function() {
+                        if (chrome.runtime.lastError) {
+                            console.error('Storage error:', chrome.runtime.lastError);
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error in skip button:', error);
+                }
+            } else {
+                // Fallback: store in localStorage
+                try {
+                    localStorage.setItem('scratchCollab_introductionSeen', 'true');
+                } catch (e) {
+                    console.error('localStorage not available');
+                }
+            }
+
+            // Close this window
+            try {
+                window.close();
+            } catch (error) {
+                console.error('Error closing window:', error);
+            }
+        });
+
+        // Add some interactive animations
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                const features = document.querySelectorAll('.feature-item');
+                features.forEach((feature, index) => {
+                    setTimeout(() => {
+                        feature.style.opacity = '1';
+                        feature.style.transform = 'translateX(0)';
+                    }, index * 200);
+                });
+            } catch (error) {
+                console.error('Error in animation setup:', error);
+            }
+        });
+
+        // Debug logging
+        console.log('Welcome page loaded');
+        console.log('Extension context:', isExtensionContext());
+        console.log('Chrome runtime available:', typeof chrome !== 'undefined');
+        console.log('Storage available:', typeof chrome !== 'undefined' && chrome.storage);
+    </script>
+</body>
+</html>

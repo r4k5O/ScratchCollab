@@ -52,6 +52,61 @@ class ScratchCollaboration {
           this.sendFriendInvitation(request.friendUsername);
           sendResponse({ success: true });
           break;
+
+        case 'addFriend':
+          this.addFriend(request.friendUsername);
+          sendResponse({ success: true });
+          break;
+
+        case 'removeFriend':
+          this.removeFriend(request.friendUsername);
+          sendResponse({ success: true });
+          break;
+
+        case 'getFriends':
+          this.getFriends();
+          sendResponse({ success: true });
+          break;
+
+        case 'getFriendRequests':
+          this.getFriendRequests();
+          sendResponse({ success: true });
+          break;
+
+        case 'acceptFriendRequest':
+          this.acceptFriendRequest(request.requesterUsername);
+          sendResponse({ success: true });
+          break;
+
+        case 'declineFriendRequest':
+          this.declineFriendRequest(request.requesterUsername);
+          sendResponse({ success: true });
+          break;
+
+        case 'getNotifications':
+          this.getNotifications();
+          sendResponse({ success: true });
+          break;
+
+        case 'markNotificationRead':
+          this.markNotificationAsRead(request.notificationId);
+          sendResponse({ success: true });
+          break;
+
+        case 'markAllNotificationsRead':
+          this.markAllNotificationsAsRead();
+          sendResponse({ success: true });
+          break;
+
+        case 'deleteNotification':
+          this.deleteNotification(request.notificationId);
+          sendResponse({ success: true });
+          break;
+
+        case 'clearAllNotifications':
+          this.clearAllNotifications();
+          sendResponse({ success: true });
+          break;
       }
       return true;
     });
@@ -277,6 +332,12 @@ class ScratchCollaboration {
       case 'userJoined':
         this.showNotification(`${message.userName} joined the collaboration`);
         this.updateParticipantsList();
+
+        // Create notification for user joining collaboration
+        if (this.scratchAuth && this.scratchAuth.isLoggedIn && this.scratchAuth.username) {
+          // This would be handled by the server creating notifications for all participants
+          // The server will send notifications to all users in the session
+        }
         break;
 
       case 'userLeft':
@@ -303,6 +364,126 @@ class ScratchCollaboration {
       case 'error':
         console.error('Server error:', message.message);
         this.showNotification(`Error: ${message.message}`);
+
+        // Send error to popup
+        chrome.runtime.sendMessage({
+          action: 'friendActionError',
+          error: message.message
+        });
+        break;
+
+      case 'friendsList':
+        console.log('Friends list received:', message.friends);
+        chrome.runtime.sendMessage({
+          action: 'friendsListReceived',
+          friends: message.friends
+        });
+        break;
+
+      case 'friendRequests':
+        console.log('Friend requests received:', message.requests);
+        chrome.runtime.sendMessage({
+          action: 'friendRequestsReceived',
+          requests: message.requests
+        });
+        break;
+
+      case 'friendRequestSent':
+        console.log('Friend request sent confirmation:', message);
+        chrome.runtime.sendMessage({
+          action: 'friendRequestSent',
+          friendUsername: message.friendUsername
+        });
+        break;
+
+      case 'friendRemoved':
+        console.log('Friend removed confirmation:', message);
+        chrome.runtime.sendMessage({
+          action: 'friendRemoved',
+          friendUsername: message.friendUsername
+        });
+        break;
+
+      case 'friendRequestReceived':
+        console.log('Friend request received:', message);
+        chrome.runtime.sendMessage({
+          action: 'friendRequestReceived',
+          from: message.from,
+          projectId: message.projectId
+        });
+        break;
+
+      case 'friendAdded':
+        console.log('Friend added confirmation:', message);
+        chrome.runtime.sendMessage({
+          action: 'friendAdded',
+          friendUsername: message.friendUsername
+        });
+        break;
+
+      case 'friendRequestAccepted':
+        console.log('Friend request accepted confirmation:', message);
+        chrome.runtime.sendMessage({
+          action: 'friendRequestAccepted',
+          friendUsername: message.friendUsername
+        });
+        break;
+
+      case 'friendRequestDeclined':
+        console.log('Friend request declined confirmation:', message);
+        chrome.runtime.sendMessage({
+          action: 'friendRequestDeclined',
+          requesterUsername: message.requesterUsername
+        });
+        break;
+
+      case 'notificationsList':
+        console.log('Notifications list received:', message);
+        chrome.runtime.sendMessage({
+          action: 'notificationsListReceived',
+          notifications: message.notifications,
+          unreadCount: message.unreadCount
+        });
+        break;
+
+      case 'notificationMarkedRead':
+        console.log('Notification marked as read:', message);
+        chrome.runtime.sendMessage({
+          action: 'notificationMarkedRead',
+          notificationId: message.notificationId
+        });
+        break;
+
+      case 'allNotificationsMarkedRead':
+        console.log('All notifications marked as read:', message);
+        chrome.runtime.sendMessage({
+          action: 'allNotificationsMarkedRead'
+        });
+        break;
+
+      case 'notificationDeleted':
+        console.log('Notification deleted:', message);
+        chrome.runtime.sendMessage({
+          action: 'notificationDeleted',
+          notificationId: message.notificationId
+        });
+        break;
+
+      case 'allNotificationsCleared':
+        console.log('All notifications cleared:', message);
+        chrome.runtime.sendMessage({
+          action: 'allNotificationsCleared'
+        });
+        break;
+
+      case 'projectInvitation':
+        console.log('Project invitation received:', message);
+        this.handleProjectInvitation(message);
+        break;
+
+      case 'projectInvitationSent':
+        console.log('Project invitation sent confirmation:', message);
+        this.showNotification(`Projekteinladung an ${message.friendUsername} gesendet`);
         break;
 
       default:
@@ -495,7 +676,7 @@ class ScratchCollaboration {
     const shareButton = document.createElement('button');
     shareButton.id = 'scratch-collab-share-btn';
     shareButton.className = 'scratch-collab-share-button';
-    shareButton.textContent = 'Share with ScratchCollab';
+    shareButton.textContent = 'Teilen';
     shareButton.title = 'Share this project with friends who have ScratchCollab';
 
     shareButton.style.cssText = `
@@ -537,8 +718,9 @@ class ScratchCollaboration {
 
     if (projectId) {
       try {
-        const result = await chrome.storage.local.get(['serverUrl']);
+        const result = await chrome.storage.local.get(['serverUrl', 'userName']);
         const serverUrl = result.serverUrl;
+        const userName = result.userName || 'Anonymous';
 
         // Check if server URL is configured
         if (!serverUrl || serverUrl.trim() === '') {
@@ -547,15 +729,14 @@ class ScratchCollaboration {
         }
 
         // Generate collaboration URL using the server
-        const collaborationUrl = `${serverUrl}?project=${projectId}&source=scratch`;
+        const collaborationUrl = `${serverUrl}?project=${projectId}&source=scratch&host=${encodeURIComponent(userName)}`;
 
         // Test if server is reachable before sharing
         const serverReachable = await this.testServerAvailability(serverUrl);
 
         if (serverReachable) {
-          // Server is available - copy link and show success message
-          await this.copyCollaborationUrl(collaborationUrl);
-          this.showNotification(`Zusammenarbeits-Link erstellt: ${collaborationUrl}`);
+          // Show enhanced share dialog
+          this.showEnhancedShareDialog(collaborationUrl, projectId);
         } else {
           // Server not reachable - offer to start server or use alternative
           this.handleServerNotAvailable(collaborationUrl, serverUrl);
@@ -674,6 +855,538 @@ class ScratchCollaboration {
     }, 1000);
   }
 
+  // Show enhanced share dialog with multiple options
+  showEnhancedShareDialog(collaborationUrl, projectId) {
+    // Create share dialog overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'scratch-collab-share-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10010;
+      font-family: Arial, sans-serif;
+    `;
+
+    // Create dialog container
+    const dialog = document.createElement('div');
+    dialog.id = 'scratch-collab-share-dialog';
+    dialog.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      position: relative;
+    `;
+
+    // Get project title for display
+    const projectTitle = this.getProjectTitle() || `Scratch Project ${projectId}`;
+
+    dialog.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0; color: #ff6b35; font-size: 18px;">Projekt teilen</h3>
+        <button id="closeShareDialog" style="
+          background: none;
+          border: none;
+          font-size: 24px;
+          cursor: pointer;
+          color: #666;
+          padding: 0;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          transition: background-color 0.2s;
+        ">&times;</button>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">Projekt:</h4>
+        <div style="font-size: 16px; color: #666; word-break: break-all;">${projectTitle}</div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">Zusammenarbeits-Link:</h4>
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <input type="text" id="collaborationUrl" value="${collaborationUrl}" readonly style="
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 12px;
+            background: #f9f9f9;
+          ">
+          <button id="copyLinkBtn" style="
+            background: #ff6b35;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+          ">Kopieren</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">QR-Code für mobile Geräte:</h4>
+        <div id="qrCodeContainer" style="text-align: center; padding: 16px; background: #f9f9f9; border-radius: 8px;">
+          <div id="qrCodePlaceholder" style="width: 150px; height: 150px; background: #e9e9e9; margin: 0 auto; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #666; font-size: 12px;">QR-Code wird generiert...</div>
+        </div>
+        <button id="downloadQrBtn" style="
+          background: #28a745;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: bold;
+          margin-top: 8px;
+          transition: background-color 0.2s;
+          display: none;
+        ">QR-Code herunterladen</button>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <h4 style="margin: 0 0 8px 0; color: #333; font-size: 14px;">Schnellaktionen:</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <button id="shareEmailBtn" style="
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+          ">📧 E-Mail</button>
+          <button id="shareWhatsAppBtn" style="
+            background: #25d366;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+          ">💬 WhatsApp</button>
+          <button id="shareDiscordBtn" style="
+            background: #5865f2;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+          ">💬 Discord</button>
+          <button id="inviteFriendsBtn" style="
+            background: #ff6b35;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+          ">👥 Freunde einladen</button>
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid #eee; padding-top: 16px; text-align: center;">
+        <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
+          Andere können über diesen Link an Ihrem Projekt mitarbeiten
+        </div>
+        <div style="font-size: 11px; color: #999;">
+          Die Zusammenarbeit erfordert die ScratchCollab-Erweiterung
+        </div>
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // Set up event listeners
+    this.setupShareDialogEvents(overlay, dialog, collaborationUrl, projectId);
+  }
+
+  // Set up event listeners for share dialog
+  setupShareDialogEvents(overlay, dialog, collaborationUrl, projectId) {
+    // Close dialog
+    const closeBtn = dialog.querySelector('#closeShareDialog');
+    closeBtn.addEventListener('click', () => {
+      overlay.remove();
+    });
+
+    // Copy link
+    const copyBtn = dialog.querySelector('#copyLinkBtn');
+    const urlInput = dialog.querySelector('#collaborationUrl');
+    copyBtn.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(collaborationUrl);
+        } else {
+          this.fallbackCopyTextToClipboard(collaborationUrl);
+        }
+        this.showNotification('Link in Zwischenablage kopiert!');
+        copyBtn.textContent = '✓ Kopiert!';
+        setTimeout(() => {
+          copyBtn.textContent = 'Kopieren';
+        }, 2000);
+      } catch (error) {
+        console.error('Error copying URL:', error);
+        this.showNotification('Fehler beim Kopieren');
+      }
+    });
+
+    // Generate QR Code
+    this.generateQRCode(collaborationUrl, dialog);
+
+    // Email sharing
+    const emailBtn = dialog.querySelector('#shareEmailBtn');
+    emailBtn.addEventListener('click', () => {
+      const subject = encodeURIComponent(`Zusammenarbeit an Scratch-Projekt`);
+      const body = encodeURIComponent(`Hallo!\n\nIch lade dich ein, an meinem Scratch-Projekt mitzuarbeiten.\n\nKlicke auf folgenden Link, um beizutreten:\n${collaborationUrl}\n\nViel Spaß beim gemeinsamen Programmieren!\n\nGruß`);
+      window.open(`mailto:?subject=${subject}&body=${body}`);
+    });
+
+    // WhatsApp sharing
+    const whatsappBtn = dialog.querySelector('#shareWhatsAppBtn');
+    whatsappBtn.addEventListener('click', () => {
+      const message = encodeURIComponent(`Hallo! Ich lade dich ein, an meinem Scratch-Projekt mitzuarbeiten: ${collaborationUrl}`);
+      window.open(`https://wa.me/?text=${message}`);
+    });
+
+    // Discord sharing
+    const discordBtn = dialog.querySelector('#shareDiscordBtn');
+    discordBtn.addEventListener('click', () => {
+      // Copy link to clipboard for Discord
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(collaborationUrl);
+      } else {
+        this.fallbackCopyTextToClipboard(collaborationUrl);
+      }
+      this.showNotification('Link für Discord kopiert!');
+    });
+
+    // Invite friends
+    const inviteBtn = dialog.querySelector('#inviteFriendsBtn');
+    inviteBtn.addEventListener('click', () => {
+      overlay.remove();
+      this.showInviteFriendsDialog(collaborationUrl, projectId);
+    });
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.remove();
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', function escapeHandler(e) {
+      if (e.key === 'Escape') {
+        overlay.remove();
+        document.removeEventListener('keydown', escapeHandler);
+      }
+    });
+  }
+
+  // Generate QR Code for sharing
+  async generateQRCode(url, dialog) {
+    const qrContainer = dialog.querySelector('#qrCodeContainer');
+    const qrPlaceholder = dialog.querySelector('#qrCodePlaceholder');
+    const downloadBtn = dialog.querySelector('#downloadQrBtn');
+
+    try {
+      // Use a simple QR code generation approach
+      const qrSize = 150;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(url)}`;
+
+      const qrImage = document.createElement('img');
+      qrImage.src = qrUrl;
+      qrImage.alt = 'QR Code';
+      qrImage.style.cssText = `
+        width: ${qrSize}px;
+        height: ${qrSize}px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      `;
+
+      qrImage.onload = () => {
+        qrPlaceholder.style.display = 'none';
+        qrContainer.appendChild(qrImage);
+        downloadBtn.style.display = 'inline-block';
+
+        // Download QR code
+        downloadBtn.addEventListener('click', () => {
+          const link = document.createElement('a');
+          link.href = qrUrl;
+          link.download = 'scratch-collaboration-qr.png';
+          link.click();
+        });
+      };
+
+      qrImage.onerror = () => {
+        qrPlaceholder.textContent = 'QR-Code konnte nicht generiert werden';
+      };
+
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      qrPlaceholder.textContent = 'QR-Code konnte nicht generiert werden';
+    }
+  }
+
+  // Show dialog to invite specific friends
+  showInviteFriendsDialog(collaborationUrl, projectId) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10011;
+      font-family: Arial, sans-serif;
+    `;
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    `;
+
+    dialog.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0; color: #ff6b35; font-size: 18px;">Freunde einladen</h3>
+        <button id="closeInviteDialog" style="
+          background: none;
+          border: none;
+          font-size: 24px;
+          cursor: pointer;
+          color: #666;
+          padding: 0;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">&times;</button>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <p style="margin: 0 0 16px 0; color: #666; font-size: 14px;">
+          Wählen Sie Freunde aus, die Sie zu diesem Projekt einladen möchten:
+        </p>
+
+        <div id="friendsList" style="max-height: 200px; overflow-y: auto; margin-bottom: 16px;">
+          <div style="text-align: center; color: #666; padding: 20px;">Lade Freunde...</div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <input type="text" id="customFriendInput" placeholder="Scratch-Benutzername eingeben..."
+                 style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button id="inviteSelectedBtn" style="
+            flex: 1;
+            background: #ff6b35;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+          ">Ausgewählte einladen</button>
+          <button id="inviteCustomBtn" style="
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+          ">Benutzer einladen</button>
+        </div>
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // Load friends list
+    this.loadFriendsForInvitation(dialog);
+
+    // Set up event listeners
+    const closeBtn = dialog.querySelector('#closeInviteDialog');
+    closeBtn.addEventListener('click', () => overlay.remove());
+
+    const inviteCustomBtn = dialog.querySelector('#inviteCustomBtn');
+    const customInput = dialog.querySelector('#customFriendInput');
+
+    inviteCustomBtn.addEventListener('click', () => {
+      const friendUsername = customInput.value.trim();
+      if (friendUsername) {
+        this.sendProjectInvitation(friendUsername, collaborationUrl, projectId);
+        overlay.remove();
+      } else {
+        customInput.style.borderColor = '#d32f2f';
+        customInput.placeholder = 'Bitte geben Sie einen Benutzernamen ein';
+      }
+    });
+
+    customInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        inviteCustomBtn.click();
+      }
+    });
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.remove();
+      }
+    });
+  }
+
+  // Load friends list for invitation
+  async loadFriendsForInvitation(dialog) {
+    const friendsList = dialog.querySelector('#friendsList');
+
+    try {
+      // Request friends list from server
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        this.socket.send(JSON.stringify({
+          type: 'getFriends',
+          timestamp: Date.now()
+        }));
+
+        // Listen for response
+        const originalHandler = this.handleServerMessage.bind(this);
+        this.handleServerMessage = (message) => {
+          if (message.type === 'friendsList') {
+            this.displayFriendsForInvitation(message.friends, dialog);
+            this.handleServerMessage = originalHandler;
+          } else {
+            originalHandler(message);
+          }
+        };
+      } else {
+        friendsList.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Nicht mit Server verbunden</div>';
+      }
+    } catch (error) {
+      console.error('Error loading friends for invitation:', error);
+      friendsList.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Fehler beim Laden der Freunde</div>';
+    }
+  }
+
+  // Display friends for invitation selection
+  displayFriendsForInvitation(friends, dialog) {
+    const friendsList = dialog.querySelector('#friendsList');
+
+    if (!friends || friends.length === 0) {
+      friendsList.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Keine Freunde gefunden</div>';
+      return;
+    }
+
+    const friendsHtml = friends.map(friend => `
+      <label style="display: flex; align-items: center; padding: 8px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 4px; cursor: pointer; transition: background-color 0.2s;">
+        <input type="checkbox" value="${friend.username}" style="margin-right: 8px;">
+        <img src="${friend.avatar || '/images/avatar-default.png'}"
+             alt="${friend.username}"
+             style="width: 32px; height: 32px; border-radius: 50%; margin-right: 8px; object-fit: cover;">
+        <div>
+          <div style="font-weight: bold; font-size: 14px;">${friend.username}</div>
+          <div style="font-size: 12px; color: #666;">${friend.status === 'online' ? '🟢 Online' : '⚫ Offline'}</div>
+        </div>
+      </label>
+    `).join('');
+
+    friendsList.innerHTML = friendsHtml;
+  }
+
+  // Send project invitation to specific user
+  async sendProjectInvitation(friendUsername, collaborationUrl, projectId) {
+    try {
+      if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+        this.showNotification('Nicht mit Server verbunden');
+        return;
+      }
+
+      // Send invitation through WebSocket
+      const invitationMessage = {
+        type: 'projectInvitation',
+        friendUsername: friendUsername,
+        collaborationUrl: collaborationUrl,
+        projectId: projectId,
+        hostUsername: this.userName,
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(invitationMessage));
+
+      this.showNotification(`Einladung an ${friendUsername} gesendet!`);
+      console.log(`Project invitation sent to ${friendUsername}`);
+
+    } catch (error) {
+      console.error('Error sending project invitation:', error);
+      this.showNotification('Fehler beim Senden der Einladung');
+    }
+  }
+
+  // Get project title from Scratch interface
+  getProjectTitle() {
+    try {
+      // Try to find project title in Scratch interface
+      const titleSelectors = [
+        '.project-title',
+        'h1',
+        '.title',
+        '[data-project-title]'
+      ];
+
+      for (let selector of titleSelectors) {
+        const element = document.querySelector(selector);
+        if (element) {
+          const title = element.textContent || element.getAttribute('data-project-title');
+          if (title && title.trim()) {
+            return title.trim();
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('Error getting project title:', error);
+      return null;
+    }
+  }
+
   // Handle case when server is configured but not available
   handleServerNotAvailable(collaborationUrl, serverUrl) {
     const notification = document.createElement('div');
@@ -754,8 +1467,19 @@ class ScratchCollaboration {
         this.statusElement.textContent = `Collaborating as ${this.userName}`;
         this.statusElement.style.display = 'block';
         this.statusElement.style.background = 'rgba(0, 150, 0, 0.8)';
+
+        // Add connected animation
+        this.statusElement.style.animation = 'bounceIn 0.5s ease-out';
+        setTimeout(() => {
+          this.statusElement.style.animation = '';
+        }, 500);
       } else {
-        this.statusElement.style.display = 'none';
+        // Add disconnect animation
+        this.statusElement.style.animation = 'fadeIn 0.3s ease-out reverse';
+        setTimeout(() => {
+          this.statusElement.style.display = 'none';
+          this.statusElement.style.animation = '';
+        }, 300);
       }
     }
   }
@@ -789,12 +1513,16 @@ class ScratchCollaboration {
   handleChatMessage(message) {
     console.log('Received chat message:', message);
 
+    // Determine if this is our own message
+    const isOwnMessage = (message.userName === this.userName);
+
     // Forward chat message to popup
     chrome.runtime.sendMessage({
       action: 'chatMessageReceived',
       userName: message.userName,
       chatMessage: message.message,
-      timestamp: message.timestamp
+      timestamp: message.timestamp,
+      isOwnMessage: isOwnMessage
     });
   }
 
@@ -809,10 +1537,17 @@ class ScratchCollaboration {
       };
 
       this.socket.send(JSON.stringify(chatMessage));
+      console.log('Chat message sent to server:', message);
+    } else {
+      // Send error response back to popup
+      chrome.runtime.sendMessage({
+        action: 'chatError',
+        error: 'Not connected to server'
+      });
     }
   }
 
-  // Send friend invitation to server
+  // Send friend invitation to server (legacy method)
   sendFriendInvitation(friendUsername) {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       const invitationMessage = {
@@ -825,6 +1560,211 @@ class ScratchCollaboration {
 
       this.socket.send(JSON.stringify(invitationMessage));
       console.log(`Friend invitation sent to ${friendUsername}`);
+    }
+  }
+
+  // Add friend (new method)
+  addFriend(friendUsername) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const addFriendMessage = {
+        type: 'addFriend',
+        friendUsername: friendUsername,
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(addFriendMessage));
+      console.log(`Add friend request sent for ${friendUsername}`);
+    } else {
+      // Send error response back to popup
+      chrome.runtime.sendMessage({
+        action: 'friendActionError',
+        error: 'Not connected to server'
+      });
+    }
+  }
+
+  // Remove friend
+  removeFriend(friendUsername) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const removeFriendMessage = {
+        type: 'removeFriend',
+        friendUsername: friendUsername,
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(removeFriendMessage));
+      console.log(`Remove friend request sent for ${friendUsername}`);
+    } else {
+      chrome.runtime.sendMessage({
+        action: 'friendActionError',
+        error: 'Not connected to server'
+      });
+    }
+  }
+
+  // Get friends list
+  getFriends() {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const getFriendsMessage = {
+        type: 'getFriends',
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(getFriendsMessage));
+      console.log('Get friends request sent');
+    } else {
+      chrome.runtime.sendMessage({
+        action: 'friendActionError',
+        error: 'Not connected to server'
+      });
+    }
+  }
+
+  // Get friend requests
+  getFriendRequests() {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const getRequestsMessage = {
+        type: 'getFriendRequests',
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(getRequestsMessage));
+      console.log('Get friend requests sent');
+    } else {
+      chrome.runtime.sendMessage({
+        action: 'friendActionError',
+        error: 'Not connected to server'
+      });
+    }
+  }
+
+  // Accept friend request
+  acceptFriendRequest(requesterUsername) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const acceptMessage = {
+        type: 'acceptFriendRequest',
+        requesterUsername: requesterUsername,
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(acceptMessage));
+      console.log(`Accept friend request from ${requesterUsername}`);
+    } else {
+      chrome.runtime.sendMessage({
+        action: 'friendActionError',
+        error: 'Not connected to server'
+      });
+    }
+  }
+
+  // Decline friend request
+  declineFriendRequest(requesterUsername) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const declineMessage = {
+        type: 'declineFriendRequest',
+        requesterUsername: requesterUsername,
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(declineMessage));
+      console.log(`Decline friend request from ${requesterUsername}`);
+    } else {
+      chrome.runtime.sendMessage({
+        action: 'friendActionError',
+        error: 'Not connected to server'
+      });
+    }
+  }
+
+  // Get notifications
+  getNotifications() {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const getNotificationsMessage = {
+        type: 'getNotifications',
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(getNotificationsMessage));
+      console.log('Get notifications request sent');
+    } else {
+      chrome.runtime.sendMessage({
+        action: 'friendActionError',
+        error: 'Not connected to server'
+      });
+    }
+  }
+
+  // Mark notification as read
+  markNotificationAsRead(notificationId) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const markReadMessage = {
+        type: 'markNotificationRead',
+        notificationId: notificationId,
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(markReadMessage));
+      console.log(`Mark notification as read: ${notificationId}`);
+    } else {
+      chrome.runtime.sendMessage({
+        action: 'friendActionError',
+        error: 'Not connected to server'
+      });
+    }
+  }
+
+  // Mark all notifications as read
+  markAllNotificationsAsRead() {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const markAllReadMessage = {
+        type: 'markAllNotificationsRead',
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(markAllReadMessage));
+      console.log('Mark all notifications as read');
+    } else {
+      chrome.runtime.sendMessage({
+        action: 'friendActionError',
+        error: 'Not connected to server'
+      });
+    }
+  }
+
+  // Delete notification
+  deleteNotification(notificationId) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const deleteMessage = {
+        type: 'deleteNotification',
+        notificationId: notificationId,
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(deleteMessage));
+      console.log(`Delete notification: ${notificationId}`);
+    } else {
+      chrome.runtime.sendMessage({
+        action: 'friendActionError',
+        error: 'Not connected to server'
+      });
+    }
+  }
+
+  // Clear all notifications
+  clearAllNotifications() {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      const clearMessage = {
+        type: 'clearAllNotifications',
+        timestamp: Date.now()
+      };
+
+      this.socket.send(JSON.stringify(clearMessage));
+      console.log('Clear all notifications');
+    } else {
+      chrome.runtime.sendMessage({
+        action: 'friendActionError',
+        error: 'Not connected to server'
+      });
     }
   }
 
@@ -1121,7 +2061,7 @@ class ScratchCollaboration {
   }
 
   showNotification(message) {
-    // Show a simple notification
+    // Enhanced notification with animations
     const notification = document.createElement('div');
     notification.textContent = message;
     notification.style.cssText = `
@@ -1130,22 +2070,53 @@ class ScratchCollaboration {
       right: 10px;
       background: rgba(0, 0, 0, 0.9);
       color: white;
-      padding: 8px 12px;
-      border-radius: 4px;
+      padding: 12px 16px;
+      border-radius: 8px;
       font-family: Arial, sans-serif;
-      font-size: 12px;
+      font-size: 13px;
       z-index: 10001;
-      animation: slideIn 0.3s ease-out;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      border-left: 4px solid #ff6b35;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      transform-origin: right center;
     `;
+
+    // Add hover effects
+    notification.addEventListener('mouseenter', () => {
+      notification.style.transform = 'scale(1.05)';
+      notification.style.background = 'rgba(0, 0, 0, 0.95)';
+    });
+
+    notification.addEventListener('mouseleave', () => {
+      notification.style.transform = 'scale(1)';
+      notification.style.background = 'rgba(0, 0, 0, 0.9)';
+    });
+
+    // Click to dismiss
+    notification.addEventListener('click', () => {
+      notification.style.animation = 'slideIn 0.3s ease-out reverse';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    });
 
     document.body.appendChild(notification);
 
-    // Remove notification after 3 seconds
+    // Auto-dismiss with fade out animation
     setTimeout(() => {
       if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
+        notification.style.animation = 'fadeIn 0.5s ease-out reverse';
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 500);
       }
-    }, 3000);
+    }, 4000);
   }
 
   applyProjectUpdate(message) {
@@ -1327,6 +2298,93 @@ class ScratchCollaboration {
       this.remoteCursorsContainer.remove();
     }
     this.remoteCursors.clear();
+  }
+
+  // Handle incoming project invitation
+  handleProjectInvitation(message) {
+    const { hostUsername, collaborationUrl, projectId } = message;
+
+    // Create invitation notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 50px;
+      right: 10px;
+      background: rgba(255, 107, 53, 0.95);
+      color: white;
+      padding: 16px 20px;
+      border-radius: 8px;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      z-index: 10003;
+      max-width: 350px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      animation: slideIn 0.3s ease-out;
+      border-left: 4px solid #fff;
+    `;
+
+    notification.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+        🚀 Projekteinladung
+      </div>
+      <div style="margin-bottom: 12px; line-height: 1.4;">
+        <strong>${hostUsername}</strong> lädt Sie ein, an einem Scratch-Projekt mitzuarbeiten!
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button id="acceptInvitationBtn" style="
+          background: rgba(255, 255, 255, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          color: white;
+          padding: 6px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: bold;
+          transition: background-color 0.2s;
+        ">Annehmen</button>
+        <button id="declineInvitationBtn" style="
+          background: rgba(0, 0, 0, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          color: white;
+          padding: 6px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+          transition: background-color 0.2s;
+        ">Ablehnen</button>
+      </div>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Handle accept button
+    const acceptBtn = notification.querySelector('#acceptInvitationBtn');
+    acceptBtn.addEventListener('click', () => {
+      // Open collaboration URL in new tab
+      window.open(collaborationUrl, '_blank');
+      notification.remove();
+      this.showNotification(`Projekteinladung von ${hostUsername} angenommen!`);
+    });
+
+    // Handle decline button
+    const declineBtn = notification.querySelector('#declineInvitationBtn');
+    declineBtn.addEventListener('click', () => {
+      notification.remove();
+      this.showNotification('Projekteinladung abgelehnt');
+    });
+
+    // Auto-remove after 15 seconds
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 300);
+      }
+    }, 15000);
   }
 }
 

@@ -1,20 +1,137 @@
 // Background script for Scratch Collaboration Extension
 
+// Check if we're in a service worker context and APIs are available
+console.log('Background script loaded');
+console.log('Chrome runtime available:', typeof chrome !== 'undefined' && chrome.runtime);
+console.log('Chrome storage available:', typeof chrome !== 'undefined' && chrome.storage);
+console.log('Chrome tabs available:', typeof chrome !== 'undefined' && chrome.tabs);
+
 // Handle extension installation
 chrome.runtime.onInstalled.addListener((details) => {
-  if (details.reason === 'install') {
-    console.log('Scratch Collaboration Extension installed');
+  try {
+    if (details.reason === 'install') {
+      console.log('Scratch Collaboration Extension installed');
 
-    // Initialize default settings
-    chrome.storage.local.set({
-      collaborationEnabled: false,
-      serverUrl: 'http://localhost:3000',
-      userName: 'Anonymous',
-      currentProject: null,
-      setupCompleted: false // Setup must be completed by user
-    });
+      // Initialize default settings
+      chrome.storage.local.set({
+        collaborationEnabled: false,
+        serverUrl: 'http://localhost:3000',
+        userName: 'Anonymous',
+        currentProject: null,
+        setupCompleted: false, // Setup must be completed by user
+        introductionSeen: false // Track if introduction has been shown
+      }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error setting storage:', chrome.runtime.lastError);
+        }
+      });
+
+      // Show introduction page on first install
+      setTimeout(() => {
+        try {
+          showIntroductionPage();
+        } catch (error) {
+          console.error('Error showing introduction page:', error);
+        }
+      }, 1000); // Small delay to ensure extension is fully loaded
+    }
+  } catch (error) {
+    console.error('Error in onInstalled listener:', error);
   }
 });
+
+// Check if introduction should be shown on browser startup
+chrome.runtime.onStartup.addListener(() => {
+  try {
+    // Check both chrome.storage and localStorage for introduction status
+    chrome.storage.local.get(['introductionSeen'], (result) => {
+      const chromeStorageSeen = result.introductionSeen;
+
+      // Also check localStorage as fallback
+      let localStorageSeen = false;
+      try {
+        localStorageSeen = localStorage.getItem('scratchCollab_introductionSeen') === 'true';
+      } catch (e) {
+        console.warn('localStorage not available');
+      }
+
+      // Show introduction if not seen in either storage
+      if (!chromeStorageSeen && !localStorageSeen) {
+        showIntroductionPage();
+      }
+    });
+  } catch (error) {
+    console.error('Error in onStartup listener:', error);
+  }
+});
+
+// Function to show the introduction page
+function showIntroductionPage() {
+  try {
+    if (chrome.tabs && chrome.tabs.create) {
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('welcome.html'),
+        active: true
+      }, (tab) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error creating tab:', chrome.runtime.lastError.message);
+        } else {
+          console.log('Introduction page opened in tab:', tab.id);
+        }
+      });
+    } else {
+      console.error('Tabs API not available');
+    }
+  } catch (error) {
+    console.error('Error in showIntroductionPage:', error);
+  }
+}
+
+// Add context menu for testing introduction page (with error handling)
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'install') {
+    // Check if contextMenus API is available
+    if (chrome.contextMenus && chrome.contextMenus.create) {
+      try {
+        chrome.contextMenus.create({
+          id: 'showIntroduction',
+          title: 'Einführung erneut anzeigen',
+          contexts: ['action']
+        }, () => {
+          if (chrome.runtime.lastError) {
+            console.warn('Could not create context menu:', chrome.runtime.lastError.message);
+          } else {
+            console.log('Context menu created successfully');
+          }
+        });
+      } catch (error) {
+        console.warn('Context menus not supported:', error);
+      }
+    } else {
+      console.log('ContextMenus API not available');
+    }
+  }
+});
+
+// Handle context menu clicks (with error handling)
+if (chrome.contextMenus && chrome.contextMenus.onClicked) {
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    try {
+      if (info.menuItemId === 'showIntroduction') {
+        console.log('Resetting introduction flag and showing page');
+        chrome.storage.local.set({ introductionSeen: false }, () => {
+          if (chrome.runtime.lastError) {
+            console.error('Error resetting introduction flag:', chrome.runtime.lastError);
+          } else {
+            showIntroductionPage();
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error in context menu handler:', error);
+    }
+  });
+}
 
 // Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -47,9 +164,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       handleParticipantsListUpdated(request, sendResponse);
       return true;
 
-    case 'startServer':
-      handleStartServer(request, sendResponse);
-      return true;
   }
 });
 
@@ -196,35 +310,6 @@ async function handleParticipantsListUpdated(request, sendResponse) {
 
     sendResponse({ success: true });
   } catch (error) {
-    sendResponse({ success: false, error: error.message });
-  }
-}
-
-// Handle starting the collaboration server
-async function handleStartServer(request, sendResponse) {
-  try {
-    // Use exec to start the server in a new terminal
-    const { exec } = require('child_process');
-    const path = require('path');
-
-    // Get the extension directory path
-    const extensionPath = chrome.runtime.getURL('.').replace('chrome-extension://', '');
-    const serverPath = path.join(extensionPath, '..', 'server');
-
-    // Start the server
-    exec('cd "' + serverPath + '" && npm start', (error, stdout, stderr) => {
-      if (error) {
-        console.error('Error starting server:', error);
-        sendResponse({ success: false, error: error.message });
-        return;
-      }
-
-      console.log('Server started successfully:', stdout);
-      sendResponse({ success: true });
-    });
-
-  } catch (error) {
-    console.error('Error in handleStartServer:', error);
     sendResponse({ success: false, error: error.message });
   }
 }
