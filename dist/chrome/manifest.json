@@ -29,8 +29,8 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["server/*", "translations/*", "welcome.html"],
-      "matches": ["https://scratch.mit.edu/*"]
+      "resources": ["welcome.html", "server/*", "translations/*"],
+      "matches": ["<all_urls>"]
     }
   ]
 }

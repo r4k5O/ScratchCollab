@@ -18,120 +18,28 @@ chrome.runtime.onInstalled.addListener((details) => {
         serverUrl: 'http://localhost:3000',
         userName: 'Anonymous',
         currentProject: null,
-        setupCompleted: false, // Setup must be completed by user
-        introductionSeen: false // Track if introduction has been shown
+        setupCompleted: false // Setup must be completed by user
+        // introductionSeen removed - feature disabled
       }, () => {
         if (chrome.runtime.lastError) {
           console.error('Error setting storage:', chrome.runtime.lastError);
         }
       });
 
-      // Show introduction page on first install
-      setTimeout(() => {
-        try {
-          showIntroductionPage();
-        } catch (error) {
-          console.error('Error showing introduction page:', error);
-        }
-      }, 1000); // Small delay to ensure extension is fully loaded
+      // Introduction page disabled - was causing file access issues
+      console.log('Introduction page feature disabled due to file access issues');
     }
   } catch (error) {
     console.error('Error in onInstalled listener:', error);
   }
 });
 
-// Check if introduction should be shown on browser startup
-chrome.runtime.onStartup.addListener(() => {
-  try {
-    // Check both chrome.storage and localStorage for introduction status
-    chrome.storage.local.get(['introductionSeen'], (result) => {
-      const chromeStorageSeen = result.introductionSeen;
+// Introduction page feature disabled - onStartup listener removed
+console.log('Introduction page feature disabled');
 
-      // Also check localStorage as fallback
-      let localStorageSeen = false;
-      try {
-        localStorageSeen = localStorage.getItem('scratchCollab_introductionSeen') === 'true';
-      } catch (e) {
-        console.warn('localStorage not available');
-      }
+// Introduction page function removed - feature disabled
 
-      // Show introduction if not seen in either storage
-      if (!chromeStorageSeen && !localStorageSeen) {
-        showIntroductionPage();
-      }
-    });
-  } catch (error) {
-    console.error('Error in onStartup listener:', error);
-  }
-});
-
-// Function to show the introduction page
-function showIntroductionPage() {
-  try {
-    if (chrome.tabs && chrome.tabs.create) {
-      chrome.tabs.create({
-        url: chrome.runtime.getURL('welcome.html'),
-        active: true
-      }, (tab) => {
-        if (chrome.runtime.lastError) {
-          console.error('Error creating tab:', chrome.runtime.lastError.message);
-        } else {
-          console.log('Introduction page opened in tab:', tab.id);
-        }
-      });
-    } else {
-      console.error('Tabs API not available');
-    }
-  } catch (error) {
-    console.error('Error in showIntroductionPage:', error);
-  }
-}
-
-// Add context menu for testing introduction page (with error handling)
-chrome.runtime.onInstalled.addListener((details) => {
-  if (details.reason === 'install') {
-    // Check if contextMenus API is available
-    if (chrome.contextMenus && chrome.contextMenus.create) {
-      try {
-        chrome.contextMenus.create({
-          id: 'showIntroduction',
-          title: 'Einführung erneut anzeigen',
-          contexts: ['action']
-        }, () => {
-          if (chrome.runtime.lastError) {
-            console.warn('Could not create context menu:', chrome.runtime.lastError.message);
-          } else {
-            console.log('Context menu created successfully');
-          }
-        });
-      } catch (error) {
-        console.warn('Context menus not supported:', error);
-      }
-    } else {
-      console.log('ContextMenus API not available');
-    }
-  }
-});
-
-// Handle context menu clicks (with error handling)
-if (chrome.contextMenus && chrome.contextMenus.onClicked) {
-  chrome.contextMenus.onClicked.addListener((info, tab) => {
-    try {
-      if (info.menuItemId === 'showIntroduction') {
-        console.log('Resetting introduction flag and showing page');
-        chrome.storage.local.set({ introductionSeen: false }, () => {
-          if (chrome.runtime.lastError) {
-            console.error('Error resetting introduction flag:', chrome.runtime.lastError);
-          } else {
-            showIntroductionPage();
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Error in context menu handler:', error);
-    }
-  });
-}
+// Context menu for introduction page removed - feature disabled
 
 // Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

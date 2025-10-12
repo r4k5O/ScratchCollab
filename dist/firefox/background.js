@@ -2,6 +2,9 @@
 
 // Check if we're in a service worker context and APIs are available
 console.log('Background script loaded');
+console.log('Chrome runtime available:', typeof chrome !== 'undefined' && chrome.runtime);
+console.log('Chrome storage available:', typeof chrome !== 'undefined' && chrome.storage);
+console.log('Chrome tabs available:', typeof chrome !== 'undefined' && chrome.tabs);
 
 // Handle extension installation
 chrome.runtime.onInstalled.addListener((details) => {
@@ -17,6 +20,10 @@ chrome.runtime.onInstalled.addListener((details) => {
         currentProject: null,
         setupCompleted: false, // Setup must be completed by user
         introductionSeen: false // Track if introduction has been shown
+      }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error setting storage:', chrome.runtime.lastError);
+        }
       });
 
       // Show introduction page on first install
@@ -36,8 +43,20 @@ chrome.runtime.onInstalled.addListener((details) => {
 // Check if introduction should be shown on browser startup
 chrome.runtime.onStartup.addListener(() => {
   try {
+    // Check both chrome.storage and localStorage for introduction status
     chrome.storage.local.get(['introductionSeen'], (result) => {
-      if (!result.introductionSeen) {
+      const chromeStorageSeen = result.introductionSeen;
+
+      // Also check localStorage as fallback
+      let localStorageSeen = false;
+      try {
+        localStorageSeen = localStorage.getItem('scratchCollab_introductionSeen') === 'true';
+      } catch (e) {
+        console.warn('localStorage not available');
+      }
+
+      // Show introduction if not seen in either storage
+      if (!chromeStorageSeen && !localStorageSeen) {
         showIntroductionPage();
       }
     });
@@ -81,11 +100,15 @@ chrome.runtime.onInstalled.addListener((details) => {
         }, () => {
           if (chrome.runtime.lastError) {
             console.warn('Could not create context menu:', chrome.runtime.lastError.message);
+          } else {
+            console.log('Context menu created successfully');
           }
         });
       } catch (error) {
         console.warn('Context menus not supported:', error);
       }
+    } else {
+      console.log('ContextMenus API not available');
     }
   }
 });
@@ -93,9 +116,19 @@ chrome.runtime.onInstalled.addListener((details) => {
 // Handle context menu clicks (with error handling)
 if (chrome.contextMenus && chrome.contextMenus.onClicked) {
   chrome.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId === 'showIntroduction') {
-      chrome.storage.local.set({ introductionSeen: false });
-      showIntroductionPage();
+    try {
+      if (info.menuItemId === 'showIntroduction') {
+        console.log('Resetting introduction flag and showing page');
+        chrome.storage.local.set({ introductionSeen: false }, () => {
+          if (chrome.runtime.lastError) {
+            console.error('Error resetting introduction flag:', chrome.runtime.lastError);
+          } else {
+            showIntroductionPage();
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error in context menu handler:', error);
     }
   });
 }
