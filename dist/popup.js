@@ -293,6 +293,8 @@ class CollaborationPopup {
         'setupCompleted'
       ]);
 
+      console.log('Loaded storage data:', result);
+
       // If setup not completed, show setup screen
       if (!result.setupCompleted) {
         this.showSetupScreen();
@@ -313,13 +315,16 @@ class CollaborationPopup {
 
       if (response.success) {
         const status = response.status;
+        console.log('Background status:', status);
 
         if (status.collaborationEnabled) {
           this.isConnected = true;
-          this.userName = status.userName;
+          // Use storage username if available, fallback to status username
+          this.userName = result.userName || status.userName || 'Anonymous';
           this.currentProject = status.currentProject;
-          this.serverUrlInput.value = status.serverUrl;
+          this.serverUrlInput.value = status.serverUrl || result.serverUrl;
 
+          console.log('Setting username to:', this.userName);
           this.updateUIForConnected();
         } else {
           this.updateUIForDisconnected();
@@ -852,13 +857,16 @@ class CollaborationPopup {
     this.scratchAuth = authInfo;
     this.updateScratchAuthDisplay(authInfo);
 
-    // If user is logged in and we don't have a username set, use their Scratch username
-    if (authInfo.isLoggedIn && authInfo.username && (!this.userName || this.userName === 'Anonymous')) {
+    // Only use Scratch username if current username is the default 'Anonymous'
+    // and no custom username has been set by the user
+    if (authInfo.isLoggedIn && authInfo.username && this.userName === 'Anonymous') {
       this.userName = authInfo.username;
       if (this.userNameInput) {
         this.userNameInput.value = this.userName;
       }
       console.log('Using Scratch username for collaboration:', this.userName);
+    } else {
+      console.log('Preserving user-entered username:', this.userName);
     }
   }
 
@@ -1273,13 +1281,12 @@ class CollaborationPopup {
   }
 
   showNotification(message) {
-    // Enhanced notification system with animations
+    // Enhanced notification system with close button - positioned to avoid UI blocking
     const notification = document.createElement('div');
-    notification.textContent = message;
     notification.style.cssText = `
       position: fixed;
-      top: 10px;
-      right: 10px;
+      top: 20px;
+      right: 20px;
       background: rgba(0, 0, 0, 0.9);
       color: white;
       padding: 12px 16px;
@@ -1293,11 +1300,66 @@ class CollaborationPopup {
       transition: all 0.3s ease;
       animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       transform-origin: right center;
+      max-width: 280px;
+      word-wrap: break-word;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
     `;
 
-    // Add hover effects
+    // Create message container
+    const messageDiv = document.createElement('div');
+    messageDiv.textContent = message;
+    messageDiv.style.cssText = `
+      flex: 1;
+      line-height: 1.4;
+    `;
+
+    // Create close button
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = `
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.2s;
+    `;
+
+    // Close button hover effect
+    closeBtn.addEventListener('mouseenter', () => {
+      closeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+    });
+
+    closeBtn.addEventListener('mouseleave', () => {
+      closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+    });
+
+    // Close button click handler
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dismissNotification(notification);
+    });
+
+    // Notification click to dismiss (except on close button)
+    notification.addEventListener('click', (e) => {
+      if (e.target !== closeBtn) {
+        dismissNotification(notification);
+      }
+    });
+
+    // Hover effects for notification
     notification.addEventListener('mouseenter', () => {
-      notification.style.transform = 'scale(1.05)';
+      notification.style.transform = 'scale(1.02)';
       notification.style.background = 'rgba(0, 0, 0, 0.95)';
     });
 
@@ -1306,29 +1368,26 @@ class CollaborationPopup {
       notification.style.background = 'rgba(0, 0, 0, 0.9)';
     });
 
-    // Click to dismiss
-    notification.addEventListener('click', () => {
-      notification.style.animation = 'slideIn 0.3s ease-out reverse';
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, 300);
-    });
-
+    notification.appendChild(messageDiv);
+    notification.appendChild(closeBtn);
     document.body.appendChild(notification);
 
     // Auto-dismiss with fade out animation
     setTimeout(() => {
       if (notification.parentNode) {
-        notification.style.animation = 'fadeIn 0.5s ease-out reverse';
-        setTimeout(() => {
-          if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-          }
-        }, 500);
+        dismissNotification(notification);
       }
-    }, 4000);
+    }, 5000);
+
+    // Function to dismiss notification with animation
+    function dismissNotification(notif) {
+      notif.style.animation = 'slideIn 0.3s ease-out reverse';
+      setTimeout(() => {
+        if (notif.parentNode) {
+          notif.parentNode.removeChild(notif);
+        }
+      }, 300);
+    }
   }
 
   // Validate server URL format (supports ngrok and other tunneling services)
@@ -1659,8 +1718,8 @@ class CollaborationPopup {
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
-      top: 50px;
-      right: 10px;
+      top: 20px;
+      right: 20px;
       background: rgba(0, 0, 0, 0.9);
       color: white;
       padding: 12px 16px;
@@ -1671,9 +1730,16 @@ class CollaborationPopup {
       max-width: 400px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
       animation: slideIn 0.3s ease-out;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
     `;
 
-    notification.innerHTML = `
+    // Create content container
+    const contentDiv = document.createElement('div');
+    contentDiv.style.cssText = `flex: 1;`;
+    contentDiv.innerHTML = `
       <div style="font-weight: bold; margin-bottom: 8px;">Server manuell starten:</div>
       <div style="margin-bottom: 8px; line-height: 1.4;">
         Öffnen Sie ein Terminal und führen Sie aus:<br><br>
@@ -1685,6 +1751,42 @@ class CollaborationPopup {
       </div>
     `;
 
+    // Create close button
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = `
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.2s;
+    `;
+
+    // Close button hover effect
+    closeBtn.addEventListener('mouseenter', () => {
+      closeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+    });
+
+    closeBtn.addEventListener('mouseleave', () => {
+      closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+    });
+
+    // Close button click handler
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      notification.remove();
+    });
+
+    notification.appendChild(contentDiv);
+    notification.appendChild(closeBtn);
     document.body.appendChild(notification);
 
     setTimeout(() => {

@@ -4,10 +4,12 @@ class ScratchCollaboration {
   constructor() {
     this.isCollaborating = false;
     this.projectId = null;
-    this.userName = 'Anonymous';
+    this.userName = null; // Start with null, will be loaded from storage
     this.serverUrl = 'http://localhost:3000';
     this.socket = null;
     this.projectMonitor = null;
+    this.lastProjectUpdate = 0; // Track last project update time
+    this.notificationQueue = []; // Queue for managing notifications
 
     this.init();
   }
@@ -135,13 +137,23 @@ class ScratchCollaboration {
 
       this.isCollaborating = result.collaborationEnabled || false;
       this.serverUrl = result.serverUrl || 'http://localhost:3000';
-      this.userName = result.userName || 'Anonymous';
+
+      // Only use 'Anonymous' as fallback if no username exists in storage at all
+      // If userName exists (even if empty string), preserve it
+      if (result.hasOwnProperty('userName')) {
+        this.userName = result.userName;
+      } else {
+        this.userName = 'Anonymous';
+      }
+
+      console.log('Loaded settings - userName:', this.userName, 'from storage:', result.userName);
 
       if (result.currentProject) {
         this.projectId = result.currentProject;
       }
 
       if (this.isCollaborating) {
+        // Restart collaboration with loaded username
         this.startCollaboration(this.projectId, this.userName);
       }
     } catch (error) {
@@ -163,8 +175,13 @@ class ScratchCollaboration {
     // Connect to collaboration server
     this.connectToServer();
 
-    // Start monitoring project changes
-    this.startProjectMonitoring();
+    // Only start monitoring if username is properly set
+    if (this.userName && this.userName !== 'Anonymous') {
+      console.log('Starting project monitoring with username:', this.userName);
+      this.startProjectMonitoring();
+    } else {
+      console.log('Skipping project monitoring - username not set:', this.userName);
+    }
 
     // Update UI
     this.updateCollaborationUI();
@@ -191,11 +208,25 @@ class ScratchCollaboration {
     // Clean up remote cursors
     this.cleanupRemoteCursors();
 
+    // Clean up notifications
+    this.cleanupNotifications();
+
     // Hide status immediately
     this.hideCollaborationStatus();
 
     // Update UI
     this.updateCollaborationUI();
+  }
+
+  // Clean up all notifications
+  cleanupNotifications() {
+    // Clear notification queue
+    this.notificationQueue.forEach(n => {
+      if (n.element.parentNode) {
+        n.element.parentNode.removeChild(n.element);
+      }
+    });
+    this.notificationQueue = [];
   }
 
   extractProjectId() {
@@ -326,11 +357,11 @@ class ScratchCollaboration {
 
       case 'joined':
         console.log(`Successfully joined project ${message.projectId}`);
-        this.showNotification(`Connected to collaboration session`);
+        this.showNotification(`Mit Zusammenarbeit verbunden`);
         break;
 
       case 'userJoined':
-        this.showNotification(`${message.userName} joined the collaboration`);
+        this.showNotification(`${message.userName} ist der Zusammenarbeit beigetreten`);
         this.updateParticipantsList();
 
         // Create notification for user joining collaboration
@@ -341,7 +372,7 @@ class ScratchCollaboration {
         break;
 
       case 'userLeft':
-        this.showNotification(`${message.userName} left the collaboration`);
+        this.showNotification(`${message.userName} hat die Zusammenarbeit verlassen`);
         this.updateParticipantsList();
         break;
 
@@ -363,7 +394,7 @@ class ScratchCollaboration {
 
       case 'error':
         console.error('Server error:', message.message);
-        this.showNotification(`Error: ${message.message}`);
+        this.showNotification(`Fehler: ${message.message}`);
 
         // Send error to popup
         chrome.runtime.sendMessage({
@@ -498,10 +529,18 @@ class ScratchCollaboration {
     this.updateParticipantsUI();
 
     // Send participants info to popup for display
-    chrome.runtime.sendMessage({
-      action: 'participantsListUpdated',
-      participants: participants
-    });
+    try {
+      chrome.runtime.sendMessage({
+        action: 'participantsListUpdated',
+        participants: participants
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Failed to send participants update:', chrome.runtime.lastError);
+        }
+      });
+    } catch (error) {
+      console.warn('Error sending participants update:', error);
+    }
   }
 
   updateParticipantsList() {
@@ -517,10 +556,18 @@ class ScratchCollaboration {
   updateParticipantsUI() {
     // Update participants in popup if it's a new participant event
     // The popup will handle the actual display
-    chrome.runtime.sendMessage({
-      action: 'participantsUpdated',
-      participants: this.participants || []
-    });
+    try {
+      chrome.runtime.sendMessage({
+        action: 'participantsUpdated',
+        participants: this.participants || []
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Failed to send participants update:', chrome.runtime.lastError);
+        }
+      });
+    } catch (error) {
+      console.warn('Error sending participants update:', error);
+    }
   }
 
   listenForCollaborationEvents() {
@@ -543,6 +590,11 @@ class ScratchCollaboration {
   }
 
   checkForProjectChanges() {
+    // Throttle project updates to prevent spam
+    if (this.lastProjectUpdate && Date.now() - this.lastProjectUpdate < 5000) {
+      return; // Only send updates every 5 seconds max
+    }
+
     // Get current project data from Scratch
     const projectData = this.getProjectData();
 
@@ -556,11 +608,18 @@ class ScratchCollaboration {
       };
 
       this.socket.send(JSON.stringify(updateMessage));
+      this.lastProjectUpdate = Date.now();
     }
   }
 
   getProjectData() {
     try {
+      // Don't send project updates if username is not properly set
+      if (!this.userName || this.userName === 'Anonymous') {
+        console.log('Skipping project update - username not set:', this.userName);
+        return null;
+      }
+
       // Try to access Scratch VM or project data
       // This is a simplified version - actual implementation would need to
       // access Scratch's internal data structures
@@ -577,6 +636,7 @@ class ScratchCollaboration {
         status: 'active'
       };
 
+      console.log('Sending project update for user:', this.userName);
       return projectInfo;
     } catch (error) {
       console.error('Error getting project data:', error);
@@ -818,8 +878,8 @@ class ScratchCollaboration {
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
-      top: 50px;
-      right: 10px;
+      top: 20px;
+      right: 20px;
       background: rgba(255, 193, 7, 0.9);
       color: black;
       padding: 12px 16px;
@@ -830,9 +890,16 @@ class ScratchCollaboration {
       max-width: 300px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
       animation: slideIn 0.3s ease-out;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
     `;
 
-    notification.innerHTML = `
+    // Create content container
+    const contentDiv = document.createElement('div');
+    contentDiv.style.cssText = `flex: 1;`;
+    contentDiv.innerHTML = `
       <div style="font-weight: bold; margin-bottom: 8px;">Server einrichten</div>
       <div style="margin-bottom: 8px;">Bitte richten Sie zuerst eine Server-URL in der Erweiterung ein, um den Zusammenarbeits-Link zu verwenden.</div>
       <div style="font-size: 11px; color: #666;">
@@ -840,6 +907,42 @@ class ScratchCollaboration {
       </div>
     `;
 
+    // Create close button
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = `
+      background: rgba(0, 0, 0, 0.2);
+      color: black;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.2s;
+    `;
+
+    // Close button hover effect
+    closeBtn.addEventListener('mouseenter', () => {
+      closeBtn.style.background = 'rgba(0, 0, 0, 0.3)';
+    });
+
+    closeBtn.addEventListener('mouseleave', () => {
+      closeBtn.style.background = 'rgba(0, 0, 0, 0.2)';
+    });
+
+    // Close button click handler
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      notification.remove();
+    });
+
+    notification.appendChild(contentDiv);
+    notification.appendChild(closeBtn);
     document.body.appendChild(notification);
 
     // Remove notification after 5 seconds
@@ -1392,8 +1495,8 @@ class ScratchCollaboration {
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
-      top: 50px;
-      right: 10px;
+      top: 20px;
+      right: 20px;
       background: rgba(255, 107, 53, 0.9);
       color: white;
       padding: 12px 16px;
@@ -1404,9 +1507,16 @@ class ScratchCollaboration {
       max-width: 320px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
       animation: slideIn 0.3s ease-out;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
     `;
 
-    notification.innerHTML = `
+    // Create content container
+    const contentDiv = document.createElement('div');
+    contentDiv.style.cssText = `flex: 1;`;
+    contentDiv.innerHTML = `
       <div style="font-weight: bold; margin-bottom: 8px;">Server nicht erreichbar</div>
       <div style="margin-bottom: 8px;">Der Server ${serverUrl} ist nicht erreichbar.</div>
       <div style="margin-bottom: 8px; font-size: 11px;">
@@ -1437,6 +1547,42 @@ class ScratchCollaboration {
       </div>
     `;
 
+    // Create close button
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = `
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.2s;
+    `;
+
+    // Close button hover effect
+    closeBtn.addEventListener('mouseenter', () => {
+      closeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+    });
+
+    closeBtn.addEventListener('mouseleave', () => {
+      closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+    });
+
+    // Close button click handler
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      notification.remove();
+    });
+
+    notification.appendChild(contentDiv);
+    notification.appendChild(closeBtn);
     document.body.appendChild(notification);
 
     // Handle button clicks
@@ -1517,13 +1663,21 @@ class ScratchCollaboration {
     const isOwnMessage = (message.userName === this.userName);
 
     // Forward chat message to popup
-    chrome.runtime.sendMessage({
-      action: 'chatMessageReceived',
-      userName: message.userName,
-      chatMessage: message.message,
-      timestamp: message.timestamp,
-      isOwnMessage: isOwnMessage
-    });
+    try {
+      chrome.runtime.sendMessage({
+        action: 'chatMessageReceived',
+        userName: message.userName,
+        chatMessage: message.message,
+        timestamp: message.timestamp,
+        isOwnMessage: isOwnMessage
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Failed to send chat message:', chrome.runtime.lastError);
+        }
+      });
+    } catch (error) {
+      console.warn('Error sending chat message:', error);
+    }
   }
 
   // Send chat message to server
@@ -1540,10 +1694,18 @@ class ScratchCollaboration {
       console.log('Chat message sent to server:', message);
     } else {
       // Send error response back to popup
-      chrome.runtime.sendMessage({
-        action: 'chatError',
-        error: 'Not connected to server'
-      });
+      try {
+        chrome.runtime.sendMessage({
+          action: 'chatError',
+          error: 'Not connected to server'
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('Failed to send chat error:', chrome.runtime.lastError);
+          }
+        });
+      } catch (error) {
+        console.warn('Error sending chat error:', error);
+      }
     }
   }
 
@@ -1576,10 +1738,18 @@ class ScratchCollaboration {
       console.log(`Add friend request sent for ${friendUsername}`);
     } else {
       // Send error response back to popup
-      chrome.runtime.sendMessage({
-        action: 'friendActionError',
-        error: 'Not connected to server'
-      });
+      try {
+        chrome.runtime.sendMessage({
+          action: 'friendActionError',
+          error: 'Not connected to server'
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('Failed to send friend action error:', chrome.runtime.lastError);
+          }
+        });
+      } catch (error) {
+        console.warn('Error sending friend action error:', error);
+      }
     }
   }
 
@@ -1595,10 +1765,18 @@ class ScratchCollaboration {
       this.socket.send(JSON.stringify(removeFriendMessage));
       console.log(`Remove friend request sent for ${friendUsername}`);
     } else {
-      chrome.runtime.sendMessage({
-        action: 'friendActionError',
-        error: 'Not connected to server'
-      });
+      try {
+        chrome.runtime.sendMessage({
+          action: 'friendActionError',
+          error: 'Not connected to server'
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('Failed to send friend action error:', chrome.runtime.lastError);
+          }
+        });
+      } catch (error) {
+        console.warn('Error sending friend action error:', error);
+      }
     }
   }
 
@@ -1882,10 +2060,18 @@ class ScratchCollaboration {
     this.currentLanguage = language;
 
     // Send language to popup for UI updates
-    chrome.runtime.sendMessage({
-      action: 'languageDetected',
-      language: language
-    });
+    try {
+      chrome.runtime.sendMessage({
+        action: 'languageDetected',
+        language: language
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Failed to send language detection:', chrome.runtime.lastError);
+        }
+      });
+    } catch (error) {
+      console.warn('Error sending language detection:', error);
+    }
 
     // Update extension UI if needed
     this.updateUILanguage(language);
@@ -2030,10 +2216,18 @@ class ScratchCollaboration {
     this.scratchAuth = authInfo;
 
     // Send auth info to popup for UI updates
-    chrome.runtime.sendMessage({
-      action: 'scratchAuthDetected',
-      authInfo: authInfo
-    });
+    try {
+      chrome.runtime.sendMessage({
+        action: 'scratchAuthDetected',
+        authInfo: authInfo
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Failed to send scratch auth detection:', chrome.runtime.lastError);
+        }
+      });
+    } catch (error) {
+      console.warn('Error sending scratch auth detection:', error);
+    }
 
     // Update extension UI based on auth status
     this.updateUIForAuth(authInfo);
@@ -2053,21 +2247,29 @@ class ScratchCollaboration {
 
   // Update collaboration features with auth info
   updateCollaborationAuth(authInfo) {
-    // If user is starting collaboration, use their Scratch username
-    if (this.userName === 'Anonymous' || !this.userName) {
+    // Only use Scratch username if current username is the default 'Anonymous'
+    // and no custom username has been set by the user
+    if (this.userName === 'Anonymous' && authInfo.isLoggedIn && authInfo.username) {
       this.userName = authInfo.username;
       console.log('Using Scratch username for collaboration:', this.userName);
+    } else {
+      console.log('Preserving user-entered username:', this.userName);
     }
   }
 
   showNotification(message) {
-    // Enhanced notification with animations
+    // Prevent duplicate notifications
+    if (this.notificationQueue.some(n => n.message === message && Date.now() - n.timestamp < 3000)) {
+      console.log('Duplicate notification prevented:', message);
+      return;
+    }
+
+    // Enhanced notification with close button - positioned to avoid Scratch UI
     const notification = document.createElement('div');
-    notification.textContent = message;
     notification.style.cssText = `
       position: fixed;
-      top: 50px;
-      right: 10px;
+      top: 20px;
+      right: 20px;
       background: rgba(0, 0, 0, 0.9);
       color: white;
       padding: 12px 16px;
@@ -2081,11 +2283,66 @@ class ScratchCollaboration {
       transition: all 0.3s ease;
       animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       transform-origin: right center;
+      max-width: 280px;
+      word-wrap: break-word;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
     `;
 
-    // Add hover effects
+    // Create message container
+    const messageDiv = document.createElement('div');
+    messageDiv.textContent = message;
+    messageDiv.style.cssText = `
+      flex: 1;
+      line-height: 1.4;
+    `;
+
+    // Create close button
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = `
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.2s;
+    `;
+
+    // Close button hover effect
+    closeBtn.addEventListener('mouseenter', () => {
+      closeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+    });
+
+    closeBtn.addEventListener('mouseleave', () => {
+      closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+    });
+
+    // Close button click handler
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dismissNotification(notification);
+    });
+
+    // Notification click to dismiss (except on close button)
+    notification.addEventListener('click', (e) => {
+      if (e.target !== closeBtn) {
+        dismissNotification(notification);
+      }
+    });
+
+    // Hover effects for notification
     notification.addEventListener('mouseenter', () => {
-      notification.style.transform = 'scale(1.05)';
+      notification.style.transform = 'scale(1.02)';
       notification.style.background = 'rgba(0, 0, 0, 0.95)';
     });
 
@@ -2094,29 +2351,53 @@ class ScratchCollaboration {
       notification.style.background = 'rgba(0, 0, 0, 0.9)';
     });
 
-    // Click to dismiss
-    notification.addEventListener('click', () => {
-      notification.style.animation = 'slideIn 0.3s ease-out reverse';
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, 300);
+    notification.appendChild(messageDiv);
+    notification.appendChild(closeBtn);
+    document.body.appendChild(notification);
+
+    // Add to notification queue
+    this.notificationQueue.push({
+      element: notification,
+      message: message,
+      timestamp: Date.now()
     });
 
-    document.body.appendChild(notification);
+    // Position notifications in stack
+    this.positionNotifications();
 
     // Auto-dismiss with fade out animation
     setTimeout(() => {
       if (notification.parentNode) {
-        notification.style.animation = 'fadeIn 0.5s ease-out reverse';
-        setTimeout(() => {
-          if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-          }
-        }, 500);
+        dismissNotification(notification);
       }
-    }, 4000);
+    }, 5000);
+
+    // Function to dismiss notification with animation
+    function dismissNotification(notif) {
+      // Remove from queue
+      this.notificationQueue = this.notificationQueue.filter(n => n.element !== notif);
+
+      notif.style.animation = 'slideIn 0.3s ease-out reverse';
+      setTimeout(() => {
+        if (notif.parentNode) {
+          notif.parentNode.removeChild(notif);
+        }
+        // Reposition remaining notifications
+        this.positionNotifications();
+      }, 300);
+    }
+
+    // Clean up old notifications from queue
+    this.notificationQueue = this.notificationQueue.filter(n => Date.now() - n.timestamp < 10000);
+  }
+
+  // Position notifications in a stack
+  positionNotifications() {
+    const notifications = document.querySelectorAll('[style*="z-index: 10001"]');
+    notifications.forEach((notif, index) => {
+      const topPosition = 20 + (index * 70); // Stack with 70px spacing
+      notif.style.top = topPosition + 'px';
+    });
   }
 
   applyProjectUpdate(message) {
@@ -2124,7 +2405,7 @@ class ScratchCollaboration {
     console.log('Applying project update from', message.userName, ':', message.data);
 
     // Show notification about the update
-    this.showNotification(`${message.userName} made changes to the project`);
+    this.showNotification(`${message.userName} hat Änderungen am Projekt vorgenommen`);
 
     // In a real implementation, this would:
     // 1. Parse the update data
@@ -2308,8 +2589,8 @@ class ScratchCollaboration {
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
-      top: 50px;
-      right: 10px;
+      top: 20px;
+      right: 20px;
       background: rgba(255, 107, 53, 0.95);
       color: white;
       padding: 16px 20px;
@@ -2321,9 +2602,16 @@ class ScratchCollaboration {
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
       animation: slideIn 0.3s ease-out;
       border-left: 4px solid #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
     `;
 
-    notification.innerHTML = `
+    // Create content container
+    const contentDiv = document.createElement('div');
+    contentDiv.style.cssText = `flex: 1;`;
+    contentDiv.innerHTML = `
       <div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">
         🚀 Projekteinladung
       </div>
@@ -2355,6 +2643,43 @@ class ScratchCollaboration {
       </div>
     `;
 
+    // Create close button
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = `
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.2s;
+    `;
+
+    // Close button hover effect
+    closeBtn.addEventListener('mouseenter', () => {
+      closeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
+    });
+
+    closeBtn.addEventListener('mouseleave', () => {
+      closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+    });
+
+    // Close button click handler
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      notification.remove();
+      this.showNotification('Projekteinladung abgelehnt');
+    });
+
+    notification.appendChild(contentDiv);
+    notification.appendChild(closeBtn);
     document.body.appendChild(notification);
 
     // Handle accept button

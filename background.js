@@ -84,7 +84,7 @@ async function handleStartCollaboration(request, sendResponse) {
     await chrome.storage.local.set({
       collaborationEnabled: true,
       currentProject: projectId,
-      userName: userName || 'Anonymous'
+      userName: userName // Preserve whatever username was provided, don't fallback to Anonymous
     });
 
     // Notify content script to start collaboration
@@ -174,13 +174,9 @@ async function handleChatMessageReceived(request, sendResponse) {
   try {
     const { userName, chatMessage, timestamp } = request;
 
-    // Forward chat message to popup
-    chrome.runtime.sendMessage({
-      action: 'displayChatMessage',
-      userName: userName,
-      message: chatMessage,
-      timestamp: timestamp
-    });
+    // Chat messages are now handled directly by content script
+    // No need to forward to popup through background script
+    console.log('Chat message received:', { userName, chatMessage, timestamp });
 
     sendResponse({ success: true });
   } catch (error) {
@@ -193,11 +189,9 @@ async function handleScratchAuthDetected(request, sendResponse) {
   try {
     const { authInfo } = request;
 
-    // Forward auth info to popup
-    chrome.runtime.sendMessage({
-      action: 'scratchAuthDetected',
-      authInfo: authInfo
-    });
+    // Auth info is now handled directly by content script
+    // No need to forward to popup through background script
+    console.log('Scratch auth detected:', authInfo);
 
     sendResponse({ success: true });
   } catch (error) {
@@ -210,11 +204,9 @@ async function handleParticipantsListUpdated(request, sendResponse) {
   try {
     const { participants } = request;
 
-    // Forward participants list to popup
-    chrome.runtime.sendMessage({
-      action: 'participantsListUpdated',
-      participants: participants
-    });
+    // Participants list is now handled directly by content script
+    // No need to forward to popup through background script
+    console.log('Participants list updated:', participants);
 
     sendResponse({ success: true });
   } catch (error) {
